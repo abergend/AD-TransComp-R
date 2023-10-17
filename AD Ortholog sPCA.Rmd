@@ -1,0 +1,257 @@
+---
+title: "AD Ortholog Exploration"
+author: "Alexander Bergendorf"
+date: "2023-08-07"
+output: html_document
+---
+
+
+# Library Import
+```{r}
+library(Seurat)
+library(mixOmics)
+library(h2o)
+library(tidyverse)
+library(orthogene)
+library(dittoSeq)
+home_dir <- "C:/Users/aberg/OneDrive/Desktop/Brubaker Summer Research 2023"
+```
+
+# sPCA exploration
+## Loading Mouse Data
+```{r}
+combined <- readRDS(file = paste0(home_dir, "/AD_mouse_objects_ortholog/mouse_adwt_labeled.RData"))
+combined <- subset(combined, subset = summary == "Microglia")
+```
+
+```{r}
+good_microglia <- readRDS(file = paste0(home_dir, "/AD_mouse_objects_ortholog/good_microglia_barcodes.RData"))
+combined <- subset(combined, cells = good_microglia)
+combined
+```
+
+```{r}
+DefaultAssay(combined) <- "RNA"
+combined <- NormalizeData(combined)
+combined <- FindVariableFeatures(combined, selection.method = "vst", nfeatures = 3000)
+all.genes <- rownames(combined)
+combined <- ScaleData(combined, features = all.genes)
+```
+
+
+```{r}
+mouse_mat <- as.matrix(t(combined@assays$RNA@scale.data))
+```
+
+## Run sPCA
+```{r}
+mouse_embeddings <- spca(mouse_mat, ncomp = 50, scale = FALSE, center = FALSE)
+```
+
+
+
+```{r}
+combined[["spca"]] <- CreateDimReducObject(embeddings = mouse_embeddings$x, loadings = mouse_embeddings$rotation, key = "spca")
+saveRDS(combined, file = paste0(home_dir, "/AD_mouse_objects_ortholog/mouse_spca_loadings.RData"))
+```
+```{r}
+combined <- readRDS(file = paste0(home_dir, "/AD_mouse_objects_ortholog/mouse_spca_loadings.RData"))
+```
+
+
+
+
+```{r}
+principle_components <- combined@reductions$spca@feature.loadings
+head(principle_components)
+principle_components <- as.data.frame(principle_components)
+```
+
+
+
+## Set Up Human Data
+```{r}
+human <- readRDS(file = paste0(home_dir, "/AD_human_objects_ortholog/human_adwt_labeled_ortholog.RData"))
+microglia <- subset(human, subset = summary == "Microglia")
+microglia
+good_microglia <- readRDS(file = paste0(home_dir, "/AD_human_objects_ortholog/good_microglia_barcodes.RData"))
+human <- subset(microglia, cells = good_microglia)
+human
+```
+
+```{r}
+DefaultAssay(human) <- "RNA"
+human <- NormalizeData(human)
+all.genes <- rownames(human)
+human <- ScaleData(human, features = all.genes)
+human_gex_matrix <- as.data.frame(human@assays$RNA@scale.data)
+```
+
+
+
+```{r}
+# Getting orthologs and matching up names of eigenvectors and 
+ortholog_mat <- convert_orthologs(gene_df = row.names(human_gex_matrix),
+                                    input_species = "human",
+                                    output_species = "mouse",
+                                    non121_strategy = "drop_both_species")
+
+ortholog_mat <- ortholog_mat %>%
+  filter(row.names(ortholog_mat) %in% row.names(principle_components))
+human_gex_matrix <- human_gex_matrix %>%
+  filter(row.names(human_gex_matrix) %in% ortholog_mat$input_gene)
+row.names(human_gex_matrix) <- row.names(ortholog_mat)
+
+principle_components  <- principle_components %>% arrange(row.names(principle_components))
+human_gex_matrix <- human_gex_matrix %>%
+  arrange(row.names(human_gex_matrix))
+```
+
+
+
+
+```{r}
+principle_components <- as.matrix(principle_components)
+human_gex_matrix <- as.matrix(human_gex_matrix)
+ncol(t(principle_components))
+nrow(human_gex_matrix)
+principle_components <- principle_components[row.names(human_gex_matrix),]
+multiplication <- t(principle_components) %*% human_gex_matrix
+human[["spca_projections"]] <- CreateDimReducObject(embeddings = t(multiplication), key = "spca_proj")
+```
+
+
+## Running GLM to determine significance of PCS
+```{r}
+human <- AddMetaData(human, human@reductions$spca_projections@cell.embeddings, col.name = colnames(human@reductions$spca_projections@cell.embeddings))
+```
+
+```{r}
+# Add dummy variable to classify cell as AD or C
+human@meta.data$dv <- 0
+Idents(human) <- human@meta.data$dv
+human_ad <- subset(human, subset = Genotype == "AD")
+Idents(human, cells = Cells(human_ad)) <- 1
+human@meta.data$dv <- Idents(human)
+Idents(human) <- human@meta.data$summary
+table(human@meta.data$Genotype, human@meta.data$dv)
+```
+
+
+
+
+```{r}
+# Run GLM
+ad.model <- glm(dv ~ spcaproj_1 + spcaproj_2 + spcaproj_3 + spcaproj_4 + spcaproj_5 + 
+                  spcaproj_6 + spcaproj_7 + spcaproj_8 + spcaproj_9 + spcaproj_10 +
+                  spcaproj_11 + spcaproj_12 + spcaproj_13 + spcaproj_14 + spcaproj_15 +
+                  spcaproj_16 + spcaproj_17 + spcaproj_18 + spcaproj_19 + spcaproj_20 +
+                  spcaproj_21 + spcaproj_22 + spcaproj_23 + spcaproj_24 + spcaproj_25 +
+                  spcaproj_26 + spcaproj_27 + spcaproj_28 + spcaproj_29 + spcaproj_30 +
+                  spcaproj_31 + spcaproj_32 + spcaproj_33 + spcaproj_34 + spcaproj_35 +
+                  spcaproj_36 + spcaproj_37 + spcaproj_38 + spcaproj_39 + spcaproj_40 +
+                  spcaproj_41 + spcaproj_42 + spcaproj_43 + spcaproj_44 + spcaproj_45 +
+                  spcaproj_46 + spcaproj_47 + spcaproj_48 + spcaproj_49 + spcaproj_50, data = human@meta.data, family = binomial)
+```
+
+```{r}
+summary(ad.model)
+```
+
+```{r}
+saveRDS(ad.model, file = paste0(home_dir, "/AD_human_objects_ortholog/spca_glm.RData"))
+saveRDS(human, file = paste0(home_dir, "/AD_human_objects_ortholog/human_mouse_proj_spca.RData"))
+```
+
+## RErunning GLM with significant PCs
+```{r}
+human <- readRDS(file = paste0(home_dir, "/AD_human_objects_ortholog/human_mouse_proj_spca.RData"))
+```
+
+```{r}
+# Run GLM
+ad.model2 <- glm(dv ~ spcaproj_1 + spcaproj_2 + spcaproj_3 + spcaproj_4 + spcaproj_5 + 
+                  spcaproj_6 + spcaproj_7 + spcaproj_8 + spcaproj_9 + 
+                  spcaproj_12 + spcaproj_13 + spcaproj_14 +
+                  spcaproj_19 + spcaproj_20 +
+                  spcaproj_21 + spcaproj_22 + spcaproj_23 + spcaproj_24 + spcaproj_25 +
+                  spcaproj_27 + spcaproj_28 + 
+                  spcaproj_32 + spcaproj_33 + spcaproj_35 +
+                   spcaproj_40 + 
+                  spcaproj_42 + spcaproj_49 + spcaproj_50,
+                  data = human@meta.data, family = binomial)
+```
+
+```{r}
+summary(ad.model2)
+```
+
+```{r}
+saveRDS(ad.model2, file = paste0(home_dir, "/AD_human_objects_ortholog/spca_glm2.RData"))
+```
+
+## RErunning GLM with Highly Significant PCs
+```{r}
+human <- readRDS(file = paste0(home_dir, "/AD_human_objects_ortholog/human_mouse_proj_spca.RData"))
+```
+
+Highly significant PCs include 1, 2, 3, 6, 7, 12, 21, 27
+
+```{r}
+# Run GLM
+ad.model3 <- glm(dv ~ spcaproj_1 + spcaproj_2 + spcaproj_3 + 
+                  spcaproj_6 + spcaproj_7 +
+                  spcaproj_12 +
+                  spcaproj_21 + 
+                  spcaproj_27, data = human@meta.data, family = binomial)
+```
+
+```{r}
+summary(ad.model3)
+```
+
+```{r}
+saveRDS(ad.model3, file = paste0(home_dir, "/AD_human_objects_ortholog/spca_glm3.RData"))
+```
+
+## Comparing all GLMS
+```{r}
+ad.model1 <- readRDS(file = paste0(home_dir, "/AD_human_objects_ortholog/spca_glm.RData"))
+ad.model2 <- readRDS(file = paste0(home_dir, "/AD_human_objects_ortholog/spca_glm2.RData"))
+ad.model3 <- readRDS(file = paste0(home_dir, "/AD_human_objects_ortholog/spca_glm3.RData"))
+models <- c(ad.model1, ad.model2, ad.model3)
+```
+
+```{r}
+summary(ad.model1)
+summary(ad.model2)
+summary(ad.model3)
+```
+
+## Visualizing Highly Different PCs
+
+
+
+```{r}
+DimPlot(human, reduction = "spca_projections", dims = c(2, 6F), group.by = "Genotype")
+```
+
+```{r}
+anova_df <- anova(ad.model2)
+anova_df <- anova_df %>%
+  arrange(desc(Deviance))
+anova_df <- anova_df %>%
+  filter(!row.names(anova_df) %in% c("NULL"))
+anova_df
+```
+
+
+```{r}
+ggplot(anova_df, aes(x = reorder(row.names(anova_df), Deviance), y = Deviance)) + 
+  geom_bar(stat = "identity") + coord_flip() +
+  scale_y_log10() + 
+  labs(x = "Principle Component",
+       title = "Significant sPCA Loadings") + 
+  theme(axis.text.y = element_text(size = 8))
+```
+

@@ -1,0 +1,44 @@
+---
+title: "AD PC and sPCA Loadings"
+author: "Alexander Bergendorf"
+date: "2023-09-09"
+output: html_document
+---
+
+# Library Import
+```{r}
+library(Seurat)
+library(mixOmics)
+library(h2o)
+library(tidyverse)
+library(orthogene)
+library(dittoSeq)
+home_dir <- "C:/Users/aberg/OneDrive/Desktop/Brubaker Summer Research 2023"
+```
+
+# PCA Loadings
+```{r}
+mouse_pca <- readRDS(file = paste0(home_dir, "/AD_mouse_objects_ortholog/mouse_pca_loadings.RData"))
+human_pca <- readRDS(file = paste0(home_dir, "/AD_human_objects_ortholog/human_mouse_proj_pca.RData"))
+ad_pca_model <- readRDS(file = paste0(home_dir, "/AD_human_objects_ortholog/pca_glm2.RData"))
+```
+
+```{r}
+anova(ad_pca_model)
+```
+
+## Visualize top genes in each PC in mice
+```{r}
+mouse_pca_loadings <- mouse_pca@reductions$pca@feature.loadings
+for(i in 1:50){
+  pc_df <- as.data.frame(mouse_pca_loadings[,i])
+  colnames(pc_df) <- "pc"
+  pc_df <- pc_df %>%
+    arrange(desc(pc))
+  dittoHeatmap(mouse_pca, genes = c(head(row.names(pc_df), 20), tail(row.names(pc_df), 20)), annot.by = "Genotype")
+}
+```
+
+
+
+

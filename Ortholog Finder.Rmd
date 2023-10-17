@@ -1,0 +1,69 @@
+---
+title: "Ortholog Finder"
+author: "Alexander Bergendorf"
+date: "2023-08-04"
+output: html_document
+---
+
+# Library Import
+```{r}
+library(Seurat)
+library(orthogene)
+home_dir <- "C:/Users/aberg/OneDrive/Desktop/Brubaker Summer Research 2023"
+```
+
+# Data Import
+```{r}
+mouse_genes <- readRDS(file = paste0(home_dir, "/AD_mouse_objects/mouse_genes.RData"))
+human_genes <- readRDS(file = paste0(home_dir, "/AD_human_objects/human_genes.RData"))
+```
+
+```{r}
+length(mouse_genes)
+length(human_genes)
+```
+
+# Adjusting Mouse genes to Human, Drop Duplicate Mappings
+```{r}
+adjusted_mouse <- convert_orthologs(gene_df = mouse_genes,
+                                    input_species = "mouse",
+                                    output_species = "human",
+                                    non121_strategy = "drop_both_species")
+```
+
+```{r}
+adjusted_human <- convert_orthologs(gene_df = human_genes,
+                                    input_species = "human",
+                                    output_species = "mouse",
+                                    non121_strategy = "drop_both_species")
+```
+
+```{r}
+length(row.names(adjusted_mouse))
+adjusted_mouse <- adjusted_mouse %>%
+  filter(row.names(adjusted_mouse) %in% adjusted_human$input_gene)
+length(row.names(adjusted_mouse))
+```
+
+```{r}
+length(row.names(adjusted_human))
+adjusted_human <- adjusted_human %>%
+  filter(row.names(adjusted_human) %in% adjusted_mouse$input_gene)
+length(row.names(adjusted_human))
+```
+
+```{r}
+length(row.names(adjusted_mouse))
+adjusted_mouse <- adjusted_mouse %>%
+  filter(row.names(adjusted_mouse) %in% adjusted_human$input_gene)
+length(row.names(adjusted_mouse))
+```
+
+```{r}
+mouse_orthologs <- adjusted_mouse$input_gene
+saveRDS(mouse_orthologs, file = paste0(home_dir, "/AD_mouse_objects/mouse_orthologs.RData"))
+
+human_orthologs <- adjusted_human$input_gene
+saveRDS(human_orthologs, file = paste0(home_dir, "/AD_human_objects/human_orthologs.RData"))
+```
+

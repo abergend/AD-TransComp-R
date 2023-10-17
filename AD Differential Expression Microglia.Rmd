@@ -1,0 +1,257 @@
+---
+title: "AD Project DE"
+author: "Alexander Bergendorf"
+date: "2023-08-17"
+output: html_document
+---
+
+# Library Import
+```{r}
+library(Seurat)
+library(mixOmics)
+library(tidyverse)
+library(orthogene)
+library(dittoSeq)
+library(openxlsx)
+home_dir <- "C:/Users/aberg/OneDrive/Desktop/Brubaker Summer Research 2023"
+```
+
+# Mouse DE
+## AD
+```{r}
+combined <- readRDS(file = paste0(home_dir, "/AD_mouse_objects_ortholog/mouse_adwt_labeled.RData"))
+combined <- subset(combined, subset = summary == "Microglia")
+good_microglia <- readRDS(file = paste0(home_dir, "/AD_mouse_objects_ortholog/good_microglia_barcodes.RData"))
+combined <- subset(combined, cells = good_microglia)
+
+
+Idents(combined) <- combined@meta.data$Genotype
+
+de <- FindMarkers(combined, ident.1 = "AD", 
+                  only.pos = TRUE, test.use = "MAST", 
+                  latent.vars = "SampleID", assay = "RNA") 
+ 
+
+write.xlsx(de, file = paste0(home_dir, "/mouse_AD_markers_microglia.xlsx"), rowNames = TRUE) 
+```
+
+## WT
+```{r}
+Idents(combined) <- combined@meta.data$Genotype
+
+de <- FindMarkers(combined, ident.1 = "WT", 
+                  only.pos = TRUE, test.use = "MAST", 
+                  latent.vars = "SampleID", assay = "RNA") 
+ 
+
+write.xlsx(de, file = paste0(home_dir, "/mouse_WT_markers_microglia.xlsx"), rowNames = TRUE) 
+```
+
+## Visualization
+```{r}
+sheets <- openxlsx::getSheetNames(paste0(home_dir, "/mouse_WT_markers_microglia.xlsx"))
+data_frame <- lapply(sheets, openxlsx::read.xlsx, xlsxFile=paste0(home_dir, "/mouse_WT_markers_microglia.xlsx"))
+  
+# assigning names to data frame
+microglia_wt <- data_frame[[1]]
+```
+
+
+```{r}
+sheets <- openxlsx::getSheetNames(paste0(home_dir, "/mouse_AD_markers_microglia.xlsx"))
+data_frame <- lapply(sheets, openxlsx::read.xlsx, xlsxFile=paste0(home_dir, "/mouse_AD_markers_microglia.xlsx"))
+  
+# assigning names to data frame
+microglia_ad <- data_frame[[1]]
+```
+
+
+```{r}
+colnames(microglia_ad) <- c("genes", "p_val", "avg_log2FC", "pct.1", "pct.2", "p_val_adj")
+colnames(microglia_wt) <- c("genes", "p_val", "avg_log2FC", "pct.1", "pct.2", "p_val_adj")
+```
+
+
+```{r}
+microglia_ad
+dittoHeatmap(combined, genes = microglia_ad$genes[1:40],
+             annot.by = c("SampleID", "Genotype"), cluster_rows = FALSE,
+             assay = "RNA")
+```
+
+```{r}
+microglia_wt
+dittoHeatmap(combined, genes = microglia_wt$genes[1:30],
+             annot.by = c("SampleID", "Genotype"), assay = "RNA", cluster_rows = FALSE)
+```
+
+
+
+# Human DE
+## AD
+```{r}
+combined <- readRDS(file = paste0(home_dir, "/AD_human_objects_ortholog/human_adwt_labeled_ortholog.RData"))
+combined <- subset(combined, subset = summary == "Microlia")
+good_microglia <- readRDS(file = paste0(home_dir, "/AD_human_objects_ortholog/good_microglia_barcodes.RData"))
+combined <- subset(combined, cells = good_microglia)
+
+Idents(combined) <- combined@meta.data$Genotype
+
+de <- FindMarkers(combined, ident.1 = "AD", 
+                  only.pos = TRUE, test.use = "MAST", 
+                  latent.vars = "orig.ident", assay = "RNA") 
+ 
+write.xlsx(de, file = paste0(home_dir, "/human_AD_markers_microglia.xlsx"), rowNames = TRUE) 
+```
+
+
+
+
+## C 
+```{r}
+Idents(combined) <- combined@meta.data$Genotype
+
+de <- FindMarkers(combined, ident.1 = "C", 
+                  only.pos = TRUE, test.use = "MAST", 
+                  latent.vars = "orig.ident", assay = "RNA") 
+ 
+write.xlsx(de, file = paste0(home_dir, "/human_C_markers_microglia.xlsx"), rowNames = TRUE) 
+```
+
+
+
+## Visualizations
+```{r}
+sheets <- openxlsx::getSheetNames(paste0(home_dir, "/human_C_markers_microglia.xlsx"))
+data_frame <- lapply(sheets, openxlsx::read.xlsx, xlsxFile=paste0(home_dir, "/human_C_markers_microglia.xlsx"))
+  
+# assigning names to data frame
+microglia_human_c <- data_frame[[1]]
+```
+
+```{r}
+sheets <- openxlsx::getSheetNames(paste0(home_dir, "/human_AD_markers_microglia.xlsx"))
+data_frame <- lapply(sheets, openxlsx::read.xlsx, xlsxFile=paste0(home_dir, "/human_AD_markers_microglia.xlsx"))
+  
+# assigning names to data frame
+microglia_human_ad <- data_frame[[1]]
+```
+
+
+```{r}
+colnames(microglia_human_c) <- c("genes", "p_val", "avg_log2FC", "pct.1", "pct.2", "p_val_adj")
+colnames(microglia_human_ad) <- c("genes", "p_val", "avg_log2FC", "pct.1", "pct.2", "p_val_adj")
+```
+
+```{r}
+microglia_human_ad
+dittoHeatmap(combined, genes = microglia_human_ad$genes[1:30],
+             annot.by = c("Genotype", "orig.ident"), cluster_rows = FALSE, assay = "RNA")
+```
+
+```{r}
+microglia_human_c
+dittoHeatmap(combined, genes = microglia_human_c$genes[1:30],
+             annot.by = c("Genotype", "orig.ident"), cluster_rows = FALSE, assay = "RNA")
+```
+
+# Comparing Mouse DE and Human DE
+```{r}
+# Human
+sheets <- openxlsx::getSheetNames(paste0(home_dir, "/human_C_markers_microglia.xlsx"))
+data_frame <- lapply(sheets, openxlsx::read.xlsx, xlsxFile=paste0(home_dir, "/human_C_markers_microglia.xlsx"))
+  
+# assigning names to data frame
+microglia_human_c <- data_frame[[1]]
+
+sheets <- openxlsx::getSheetNames(paste0(home_dir, "/human_AD_markers_microglia.xlsx"))
+data_frame <- lapply(sheets, openxlsx::read.xlsx, xlsxFile=paste0(home_dir, "/human_AD_markers_microglia.xlsx"))
+  
+# assigning names to data frame
+microglia_human_ad <- data_frame[[1]]
+```
+
+```{r}
+colnames(microglia_human_c) <- c("genes", "p_val", "avg_log2FC", "pct.1", "pct.2", "p_val_adj")
+colnames(microglia_human_ad) <- c("genes", "p_val", "avg_log2FC", "pct.1", "pct.2", "p_val_adj")
+```
+
+```{r}
+sheets <- openxlsx::getSheetNames(paste0(home_dir, "/mouse_WT_markers_microglia.xlsx"))
+data_frame <- lapply(sheets, openxlsx::read.xlsx, xlsxFile=paste0(home_dir, "/mouse_WT_markers_microglia.xlsx"))
+  
+# assigning names to data frame
+microglia_mouse_wt <- data_frame[[1]]
+
+sheets <- openxlsx::getSheetNames(paste0(home_dir, "/mouse_AD_markers_microglia.xlsx"))
+data_frame <- lapply(sheets, openxlsx::read.xlsx, xlsxFile=paste0(home_dir, "/mouse_AD_markers_microglia.xlsx"))
+  
+# assigning names to data frame
+microglia_mouse_ad <- data_frame[[1]]
+```
+
+```{r}
+colnames(microglia_mouse_wt) <- c("genes", "p_val", "avg_log2FC", "pct.1", "pct.2", "p_val_adj")
+colnames(microglia_mouse_ad) <- c("genes", "p_val", "avg_log2FC", "pct.1", "pct.2", "p_val_adj")
+```
+
+## Mouse AD and Human AD
+```{r}
+ortholog_mat <- convert_orthologs(gene_df = microglia_mouse_ad$genes,
+                                    input_species = "mouse",
+                                    output_species = "human",
+                                    non121_strategy = "drop_both_species")
+
+#ortholog_mat <- ortholog_mat %>%
+  #filter(row.names(ortholog_mat) %in% row.names(principle_components))
+#human_gex_matrix <- human_gex_matrix %>%
+  #filter(row.names(human_gex_matrix) %in% ortholog_mat$input_gene)
+#row.names(human_gex_matrix) <- row.names(ortholog_mat)
+
+#principle_components  <- principle_components %>% arrange(row.names(principle_components))
+#human_gex_matrix <- human_gex_matrix %>%
+  #arrange(row.names(human_gex_matrix))
+```
+```{r}
+# Filter based on genes that are present in human
+ad_similarities <- ortholog_mat %>%
+  filter(row.names(ortholog_mat) %in% microglia_human_ad$genes)
+ad_similarities
+```
+
+## Mouse WT to Human C
+```{r}
+ortholog_mat <- convert_orthologs(gene_df = microglia_mouse_wt$genes,
+                                    input_species = "mouse",
+                                    output_species = "human",
+                                    non121_strategy = "drop_both_species")
+
+#ortholog_mat <- ortholog_mat %>%
+  #filter(row.names(ortholog_mat) %in% row.names(principle_components))
+#human_gex_matrix <- human_gex_matrix %>%
+  #filter(row.names(human_gex_matrix) %in% ortholog_mat$input_gene)
+#row.names(human_gex_matrix) <- row.names(ortholog_mat)
+
+#principle_components  <- principle_components %>% arrange(row.names(principle_components))
+#human_gex_matrix <- human_gex_matrix %>%
+  #arrange(row.names(human_gex_matrix))
+```
+
+```{r}
+# Filter based on genes that are present in human
+wt_similarities <- ortholog_mat %>%
+  filter(row.names(ortholog_mat) %in% microglia_human_c$genes)
+wt_similarities
+```
+
+## Mouse AD to Mouse WT
+```{r}
+shared_de <- ad_similarities %>%
+  filter(row.names(ad_similarities) %in% wt_similarities)
+shared_de
+```
+
+```{r}
+
+```
+

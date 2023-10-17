@@ -1,0 +1,401 @@
+---
+title: "AD Ortholog Exploration"
+author: "Alexander Bergendorf"
+date: "2023-08-07"
+output: html_document
+---
+
+
+# Library Import
+```{r}
+library(Seurat)
+library(mixOmics)
+library(h2o)
+library(tidyverse)
+library(orthogene)
+library(dittoSeq)
+library(openxlsx)
+home_dir <- "C:/Users/aberg/OneDrive/Desktop/Brubaker Summer Research 2023"
+```
+
+# PCA Exploration
+## Loading Mouse Data
+```{r}
+combined <- readRDS(file = paste0(home_dir, "/AD_mouse_objects_ortholog/mouse_adwt_labeled.RData"))
+combined <- subset(combined, subset = summary == "Microglia")
+```
+
+## Run PCA to isolate mouse Microglia
+```{r}
+DefaultAssay(combined) <- "RNA"
+combined <- NormalizeData(combined)
+combined <- FindVariableFeatures(combined, selection.method = "vst", nfeatures = 3000)
+all.genes <- rownames(combined)
+combined <- ScaleData(combined, features = all.genes)
+combined <- RunPCA(combined, features = VariableFeatures(object = combined))
+```
+
+```{r}
+ElbowPlot(combined)
+```
+
+
+```{r}
+colnames(combined@meta.data)
+```
+
+```{r}
+dittoDimPlot(combined, var = "Genotype", reduction.use = "pca")
+```
+
+```{r}
+DimHeatmap(combined, dims = 1:4)
+```
+
+A lot of these principle components are separated by only a few cells... I think we need to cluster the cells again to get a better representation 
+
+```{r}
+combined <- FindNeighbors(combined, dims = 1:5)
+combined <- FindClusters(combined, resolution = 0.5)
+combined <- RunUMAP(combined, dims = 1:5)
+```
+
+
+```{r}
+dittoDimPlot(combined, var = "Genotype", reduction = "umap")
+dittoDimPlot(combined, "seurat_clusters", do.label = TRUE, legend.show = FALSE, labels.size = 3) 
+dittoDimPlot(combined, var = "CellType", reduction = "umap")
+```
+
+```{r}
+markers <- FindAllMarkers(combined, assay = "RNA", only.pos = TRUE, logfc.threshold = 0.5, test.use = "MAST", latent.vars = "orig.ident") 
+
+clust_counts <- table(combined@meta.data[,"seurat_clusters"]) 
+
+clust_markers_list <- list() 
+
+for(i in unique(markers$cluster)){ 
+
+clustname <- paste0('cluster', i, '_N', clust_counts[i]) 
+
+clust_markers_list[[clustname]] <- subset(markers, markers$cluster == i) 
+
+rownames(clust_markers_list[[clustname]]) <- clust_markers_list[[clustname]]$gene 
+
+} 
+
+write.xlsx(clust_markers_list, file = paste0(home_dir, "/mouse_microglia_reclustering.xlsx"))
+```
+
+```{r}
+combined <- FindSubCluster(
+  combined,
+  cluster = 4,
+  graph.name = "RNA_snn",
+  subcluster.name = "sub.cluster",
+  resolution = 0.5,
+  algorithm = 1
+)
+```
+
+```{r}
+dittoDimPlot(combined, "sub.cluster", do.label = TRUE, legend.show = FALSE, labels.size = 3) 
+```
+
+```{r}
+combined <- subset(combined, subset = sub.cluster %in% c("4_1", "4_2", "5", "6"), invert = TRUE)
+```
+
+```{r}
+good_microglia <- Cells(combined)
+saveRDS(good_microglia, file = paste0(home_dir, "/AD_mouse_objects_ortholog/good_microglia_barcodes.RData"))
+```
+
+
+## Rerun PCA mouse
+```{r}
+DefaultAssay(combined) <- "RNA"
+combined <- NormalizeData(combined)
+combined <- FindVariableFeatures(combined, selection.method = "vst", nfeatures = 3000)
+all.genes <- rownames(combined)
+combined <- ScaleData(combined, features = all.genes)
+combined <- RunPCA(combined, features = VariableFeatures(object = combined))
+```
+
+```{r}
+ElbowPlot(combined, ndims = 50)
+```
+
+
+Nice, we can see PC_2 has clear defining features which separate AD and WT. Lets use 50 PCs for Trans-Comp-R
+
+
+```{r}
+DimPlot(combined, group.by = "Genotype",dims = c(1, 2), reduction = "pca")
+```
+
+
+```{r}
+# PC1 and PC2 are most informative for treatment separation, especially PC2
+principle_components <- combined@reductions$pca@feature.loadings
+head(principle_components)
+principle_components <- as.data.frame(principle_components)
+```
+
+Now that we have the eigenvectors/eigenvalues of the PCA covariance matrix, lets bring in the human data and project the data into mouse PC space
+
+## Run PCA to isolate human microglia
+```{r}
+human <- readRDS(file = paste0(home_dir, "/AD_human_objects_ortholog/human_adwt_labeled_ortholog.RData"))
+human <- subset(human, subset = summary == "Microglia")
+```
+
+
+```{r}
+DefaultAssay(human) <- "RNA"
+human <- NormalizeData(human)
+human <- FindVariableFeatures(human, selection.method = "vst", nfeatures = 3000)
+all.genes <- rownames(human)
+human <- ScaleData(human, features = all.genes)
+human <- RunPCA(human, features = VariableFeatures(object = human))
+```
+
+```{r}
+ElbowPlot(human)
+```
+
+```{r}
+dittoDimPlot(human, var = "Genotype", reduction.use = "pca")
+```
+
+```{r}
+human <- FindNeighbors(human, dims = 1:10)
+human <- FindClusters(human, resolution = 0.5)
+human <- RunUMAP(human, dims = 1:10)
+```
+
+```{r}
+dittoDimPlot(human, var = "Genotype", reduction = "umap")
+dittoDimPlot(human, "seurat_clusters", do.label = TRUE, legend.show = FALSE, labels.size = 3) 
+```
+
+```{r}
+markers <- FindAllMarkers(human, assay = "RNA", only.pos = TRUE, logfc.threshold = 0.5, test.use = "MAST", latent.vars = "orig.ident") 
+
+clust_counts <- table(human@meta.data[,"seurat_clusters"]) 
+
+clust_markers_list <- list() 
+
+for(i in unique(markers$cluster)){ 
+
+clustname <- paste0('cluster', i, '_N', clust_counts[i]) 
+
+clust_markers_list[[clustname]] <- subset(markers, markers$cluster == i) 
+
+rownames(clust_markers_list[[clustname]]) <- clust_markers_list[[clustname]]$gene 
+
+} 
+
+write.xlsx(clust_markers_list, file = paste0(home_dir, "/human_microglia_reclustering.xlsx"))
+```
+
+
+```{r}
+human <- subset(human, subset = seurat_clusters %in% c(6, 7, 9, 10, 11), invert = TRUE)
+```
+
+```{r}
+good_microglia <- Cells(human)
+saveRDS(good_microglia, file = paste0(home_dir, "/AD_human_objects_ortholog/good_microglia_barcodes.RData"))
+```
+
+
+
+## Rerun PCA human
+```{r}
+DefaultAssay(human) <- "RNA"
+human <- NormalizeData(human)
+all.genes <- rownames(human)
+human <- ScaleData(human, features = all.genes)
+human_gex_matrix <- as.data.frame(human@assays$RNA@scale.data)
+```
+
+
+```{r}
+# Getting orthologs and matching up names of eigenvectors and 
+ortholog_mat <- convert_orthologs(gene_df = row.names(human_gex_matrix),
+                                    input_species = "human",
+                                    output_species = "mouse",
+                                    non121_strategy = "drop_both_species")
+
+ortholog_mat <- ortholog_mat %>%
+  filter(row.names(ortholog_mat) %in% row.names(principle_components))
+human_gex_matrix <- human_gex_matrix %>%
+  filter(row.names(human_gex_matrix) %in% ortholog_mat$input_gene)
+row.names(human_gex_matrix) <- row.names(ortholog_mat)
+
+principle_components  <- principle_components %>% arrange(row.names(principle_components))
+human_gex_matrix <- human_gex_matrix %>%
+  arrange(row.names(human_gex_matrix))
+```
+
+```{r}
+saveRDS(combined, file = paste0(home_dir, "/AD_mouse_objects_ortholog/mouse_pca_loadings.RData"))
+```
+
+
+
+```{r}
+principle_components <- as.matrix(principle_components)
+human_gex_matrix <- as.matrix(human_gex_matrix)
+principle_components <- principle_components[row.names(human_gex_matrix),]
+
+ncol(t(principle_components))
+nrow(human_gex_matrix)
+multiplication <- t(principle_components) %*% human_gex_matrix
+human[["pca_projections"]] <- CreateDimReducObject(embeddings = t(multiplication), key = "pca_proj")
+```
+
+## Running GLM to determine significance of PCS
+```{r}
+human <- AddMetaData(human, human@reductions$pca_projections@cell.embeddings, col.name = colnames(human@reductions$pca_projections@cell.embeddings))
+```
+
+```{r}
+# Add dummy variable to classify cell as AD or C
+human@meta.data$dv <- 0
+Idents(human) <- human@meta.data$dv
+human_ad <- subset(human, subset = Genotype == "AD")
+Idents(human, cells = Cells(human_ad)) <- 1
+human@meta.data$dv <- Idents(human)
+Idents(human) <- human@meta.data$summary
+table(human@meta.data$Genotype, human@meta.data$dv)
+```
+
+
+
+```{r}
+# Run GLM
+ad.model <- glm(dv ~ pcaproj_1 + pcaproj_2 + pcaproj_3 + pcaproj_4 + pcaproj_5 + 
+                  pcaproj_6 + pcaproj_7 + pcaproj_8 + pcaproj_9 + pcaproj_10 +
+                  pcaproj_11 + pcaproj_12 + pcaproj_13 + pcaproj_14 + pcaproj_15 +
+                  pcaproj_16 + pcaproj_17 + pcaproj_18 + pcaproj_19 + pcaproj_20 +
+                  pcaproj_21 + pcaproj_22 + pcaproj_23 + pcaproj_24 + pcaproj_25 +
+                  pcaproj_26 + pcaproj_27 + pcaproj_28 + pcaproj_29 + pcaproj_30 +
+                  pcaproj_31 + pcaproj_32 + pcaproj_33 + pcaproj_34 + pcaproj_35 +
+                  pcaproj_36 + pcaproj_37 + pcaproj_38 + pcaproj_39 + pcaproj_40 +
+                  pcaproj_41 + pcaproj_42 + pcaproj_43 + pcaproj_44 + pcaproj_45 +
+                  pcaproj_46 + pcaproj_47 + pcaproj_48 + pcaproj_49 + pcaproj_50, data = human@meta.data, family = binomial)
+```
+
+```{r}
+summary(ad.model)
+```
+
+
+
+```{r}
+saveRDS(human, file = paste0(home_dir, "/AD_human_objects_ortholog/human_mouse_proj_pca.RData"))
+saveRDS(ad.model, file = paste0(home_dir, "/AD_mouse_objects_ortholog/pca_glm.RData"))
+```
+
+## RErunning GLM with significant PCs
+```{r}
+human <- readRDS(file = paste0(home_dir, "/AD_human_objects_ortholog/human_mouse_proj_pca.RData"))
+```
+
+```{r}
+# Run GLM
+ad.model2 <- glm(dv ~ pcaproj_1 + pcaproj_2 + pcaproj_4 + pcaproj_5 + 
+                  pcaproj_6 + pcaproj_10 +
+                  pcaproj_13 + pcaproj_14 +
+                  pcaproj_16 + pcaproj_18 +
+                  pcaproj_23 + pcaproj_24 +
+                  pcaproj_26 + pcaproj_28 + pcaproj_29 + pcaproj_30 +
+                  pcaproj_31 + pcaproj_33 + pcaproj_34  +
+                  pcaproj_37 + pcaproj_38 + pcaproj_39  +
+                  pcaproj_43 +
+                  pcaproj_46 + pcaproj_49 + pcaproj_50, data = human@meta.data, family = binomial)
+
+```
+
+```{r}
+summary(ad.model2)
+```
+
+```{r}
+saveRDS(ad.model2, file = paste0(home_dir, "/AD_human_objects_ortholog/pca_glm2.RData"))
+```
+
+## RErunning GLM with highly significant PCs
+```{r}
+human <- readRDS(file = paste0(home_dir, "/AD_human_objects_ortholog/human_mouse_proj_pca.RData"))
+```
+
+PCs 1, 2, 4, 5, 6, 10, 13, 16, 26, 28, 37, and 43 are highly significant
+
+```{r}
+# Run GLM
+ad.model3 <- glm(dv ~ pcaproj_1 + pcaproj_2 + pcaproj_4 + pcaproj_5 + 
+                  pcaproj_6 +
+                  pcaproj_13 + pcaproj_14 +
+                  pcaproj_16 + 
+                  pcaproj_26 + pcaproj_28 +
+                  pcaproj_37 + pcaproj_38
+                  , data = human@meta.data, family = binomial)
+
+```
+
+```{r}
+summary(ad.model3)
+```
+
+```{r}
+saveRDS(ad.model3, file = paste0(home_dir, "/AD_human_objects_ortholog/pca_glm3.RData"))
+```
+
+## Comparing All GLMs
+```{r}
+ad.model1 <- readRDS(file = paste0(home_dir, "/AD_human_objects_ortholog/pca_glm.RData"))
+ad.model2 <- readRDS(file = paste0(home_dir, "/AD_human_objects_ortholog/pca_glm2.RData"))
+ad.model3 <- readRDS(file = paste0(home_dir, "/AD_human_objects_ortholog/pca_glm3.RData"))
+models <- c(ad.model1, ad.model2, ad.model3)
+```
+
+```{r}
+summary(ad.model1)
+summary(ad.model2)
+summary(ad.model3)
+```
+
+## Visualize PCs
+```{r}
+DimPlot(human, reduction = "pca_projections", dims = c(2, 4), group.by = "Genotype")
+```
+
+```{r}
+anova(ad.model2)
+```
+
+```{r}
+anova_df <- anova(ad.model2)
+anova_df <- anova_df %>%
+  arrange(desc(Deviance))
+anova_df <- anova_df %>%
+  filter(!row.names(anova_df) %in% c("pcaproj_31", "NULL"))
+anova_df
+```
+
+```{r}
+ggplot(anova_df, aes(x = reorder(row.names(anova_df), Deviance), y = Deviance)) + 
+  geom_bar(stat = "identity") + coord_flip() +
+  scale_y_log10() + 
+  labs(x = "Principle Component",
+       title = "Significant PCA Loadings") +
+   theme(axis.text.y = element_text(size = 10))
+```
+
+```{r}
+dittoDimPlot(human, "Genotype")
+```
+

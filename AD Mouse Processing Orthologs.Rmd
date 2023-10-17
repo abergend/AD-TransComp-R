@@ -1,0 +1,356 @@
+---
+title: "AD Mouse Processing"
+author: "Alexander Bergendorf"
+date: "2023-06-15"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+
+
+# Library Import
+```{r}
+library(Seurat) 
+library(tidyverse) 
+library(patchwork) 
+library(dittoSeq) 
+library(stringr)
+library(gprofiler2)
+library(harmony)
+library(patchwork)
+library(cowplot)
+library(openxlsx)
+library(MAST)
+
+home_dir <- "C:/Users/aberg/OneDrive/Desktop/Brubaker Summer Research 2023"
+```
+# Normal Object Setup
+## Data Import
+```{r}
+rownames <- rep("character", 1)
+control <- rep("integer", 15013)
+other <- rep("NULL", 46936)
+colClasses <- c(rownames, control, other)
+# Normal Cells
+counts <- read.table(file = paste0(home_dir, "/AD_mouse_raw/GSE208683_Allcell_6m_UMI_matrix.txt"), sep = "\t", colClasses = colClasses)
+metadata <- read.table(file = paste0(home_dir, "/AD_mouse_raw/GSE208683_Allcell_6m_meta_data.txt"), sep = "\t")
+
+metadata <- metadata[1:15013,]
+```
+
+```{r}
+mouse_orthologs <- readRDS(file = paste0(home_dir, "/AD_mouse_objects/mouse_orthologs.RData"))
+```
+
+
+```{r}
+counts <- counts %>%
+  filter(row.names(counts) %in% mouse_orthologs)
+```
+
+
+## Create Object
+```{r}
+colnames(counts) <- gsub("\\.", "-", colnames(counts))
+wild_type <- CreateSeuratObject(counts = counts, meta.data = metadata)
+table(wild_type@meta.data$SampleID, wild_type@meta.data$CellType)
+rm(counts, metadata)
+```
+
+
+```{r}
+saveRDS(wild_type, file = paste0(home_dir, "/wt_ortholog.RData"))
+#wild_type <- readRDS(file = paste0(home_dir, "/wt.RData"))
+```
+
+
+# AD Object Setup
+## Data Import
+```{r}
+rownames <- rep("character", 1)
+other1 <- rep("NULL", 31848)
+ad <- rep("integer", 14662)
+other2 <- rep("NULL",15439)
+colClasses <- c(rownames, other1, ad, other2)
+# Normal Cells
+counts <- read.table(file = paste0(home_dir, "/AD_mouse_raw/GSE208683_Allcell_6m_UMI_matrix.txt"), sep = "\t", colClasses = colClasses)
+metadata <- read.table(file = paste0(home_dir, "/AD_mouse_raw/GSE208683_Allcell_6m_meta_data.txt"), sep = "\t")
+metadata <- metadata[31849:46510,]
+```
+
+```{r}
+counts <- counts %>%
+  filter(row.names(counts) %in% mouse_orthologs)
+```
+
+## Create Object
+```{r}
+colnames(counts) <- gsub("\\.", "-", colnames(counts))
+ad <- CreateSeuratObject(counts = counts, meta.data = metadata)
+table(ad@meta.data$SampleID, ad@meta.data$CellType)
+rm(counts, metadata)
+```
+
+
+```{r}
+saveRDS(ad, file = paste0(home_dir, "/ad_ortholog.RData"))
+#ad <- readRDS(file = paste0(home_dir, "/ad.RData"))
+```
+
+# Merging and Processing Data
+```{r}
+ad <- readRDS(file = paste0(home_dir, "/ad_mouse_objects_ortholog/ad_ortholog.RData"))
+wild_type <- readRDS(file = paste0(home_dir, "/ad_mouse_objects_ortholog/wt_ortholog.RData"))
+ad <- SplitObject(ad, split.by = "SampleID")
+wild_type <- SplitObject(wild_type, split.by = "SampleID")
+combined <- c(ad, wild_type)
+rm(ad, wild_type)
+```
+
+
+```{r}
+head(combined$AD_1@meta.data)
+samples <- c("AD_1", "AD_2", "WT_1", "WT_2")
+```
+
+
+## QC and Visualization
+```{r}
+#Mitochondrial Percentage
+dittoPlot(combined$AD_1, var = "percent.mt", group.by = "SampleID")
+dittoPlot(combined$AD_2, var = "percent.mt", group.by = "SampleID")
+dittoPlot(combined$WT_1, var = "percent.mt", group.by = "SampleID")
+dittoPlot(combined$WT_2, var = "percent.mt", group.by = "SampleID")
+```
+
+```{r}
+#RNA and UMI
+dittoPlot(combined$AD_1, var = "nCount_RNA", group.by = "CellType")
+dittoPlot(combined$AD_2, var = "nCount_RNA", group.by = "CellType")
+dittoPlot(combined$WT_1, var = "nCount_RNA", group.by = "CellType")
+dittoPlot(combined$WT_2, var = "nCount_RNA", group.by = "CellType")
+```
+
+## Check Cell Cycle after clustering
+```{r}
+mmus_s <- gorth(cc.genes.updated.2019$s.genes, source_organism = "hsapiens", target_organism = "mmusculus")$ortholog_name
+mmus_g2m <- gorth(cc.genes.updated.2019$g2m.genes, source_organism = "hsapiens", target_organism = "mmusculus")$ortholog_name
+for(i in samples){ 
+    combined[[i]] <- NormalizeData(combined[[i]]) 
+    combined[[i]] <- CellCycleScoring(combined[[i]], s.features = mmus_s, g2m.features = mmus_g2m) 
+}
+```
+
+## SCTransform
+```{r}
+#Applies SCTransform individually to each sample 
+
+combined <- lapply(X = combined, FUN = SCTransform,  method ="glmGamPoi", return.only.var.genes = FALSE, vars.to.regress = c("S.Score", "G2M.Score")) 
+```
+
+```{r}
+saveRDS(combined, file = paste0(home_dir, "/AD_mouse_objects_ortholog/combined_ortholog.RData"))
+#combined <- readRDS(file = paste0(home_dir, "/AD_mouse_objects_ortholog/combined_ortholog.RData"))
+```
+
+
+```{r}
+variable.features <- SelectIntegrationFeatures(object.list = combined, nfeatures = 3000) 
+```
+
+## Batch
+```{r}
+combined <- merge(x = combined[[1]], y = combined[2:length(combined)], merge.data=TRUE) 
+
+VariableFeatures(combined) <- variable.features 
+```
+
+```{r}
+table(combined@meta.data$CellType, combined@meta.data$SampleID)
+```
+
+```{r}
+combined <- RunPCA(combined, verbose = FALSE) 
+```
+
+```{r}
+#Checking differences in principal components 
+
+options(repr.plot.height = 12, repr.plot.width = 20) 
+p1 <- DimPlot(object = combined, reduction = "pca", pt.size = .1, group.by = "SampleID") 
+p2 <- VlnPlot(object = combined, features = "PC_1", group.by = "SampleID", pt.size = 0) 
+plot_grid(p1,p2) 
+ggsave(paste0(home_dir, "/Mouse_Viz/pca_prebatch_ortholog.pdf"))
+```
+
+We should batch correct.
+
+```{r}
+#Running Harmony  
+options(repr.plot.height = 8, repr.plot.width = 16) 
+
+combined <- RunHarmony(combined, assay.use = "SCT", group.by.vars = "orig.ident", plot_convergence = TRUE) 
+ggsave(paste0(home_dir, "/Mouse_Viz/convergence_plot_ortholog.pdf"))
+```
+
+```{r}
+p1 <- DimPlot(object = combined, reduction = "harmony", pt.size = .1, group.by = "orig.ident") 
+
+p2 <- VlnPlot(object = combined, features = "harmony_1", group.by = "orig.ident", pt.size = 0) 
+
+plot_grid(p1,p2) 
+ggsave(paste0(home_dir, "/Mouse_Viz/pca_postbatch_ortholog.pdf"))
+```
+
+
+```{r}
+ElbowPlot(combined, reduction = "harmony", n = 50) 
+```
+
+Start with 30 PCS, check separation
+
+
+## Reducing Dimensionality and Clustering
+```{r}
+#Performing Dimensional Reduction 
+
+combined <- RunUMAP(combined, reduction = "harmony", dims = 1:30, verbose = FALSE) 
+
+combined <- FindNeighbors(combined, reduction = "harmony", dims = 1:30, verbose = FALSE) 
+
+combined <- FindClusters(combined, resolution = 1, verbose = FALSE) 
+```
+
+
+```{r}
+dittoDimPlot(combined, "seurat_clusters", do.label = TRUE, legend.show = FALSE, labels.size = 3) 
+
+dittoDimPlot(combined, "Genotype") 
+
+dittoDimPlot(combined, "SampleID") 
+
+dittoDimPlot(combined, "percent.mt") 
+
+dittoDimPlot(combined, "CellType") 
+
+dittoDimPlot(combined, "Phase") 
+```
+
+```{r}
+saveRDS(combined, file = paste0(home_dir, "/AD_mouse_objects_ortholog/mouse_adwt_final.RData"))
+#combined <- readRDS(file = paste0(home_dir, "/AD_mouse_objects_ortholog/mouse_adwt_final.RData"))
+```
+
+
+
+
+```{r}
+marker_list <- c("Reln", "Satb2", "Fezf2", "Crym", "Bcl11b", "Sst", "Lhx6", "Adarb2", "Gad2", "Isl1", "Tcf7l2", "Eomes",
+                 "Hes5", "Mki67", "Aldh1l1", "Olig2", "Otx2", "Trem2", "Igfbp7")
+
+for(i in marker_list){
+  print(dittoDimPlot(combined, var = i, assay = "RNA"))
+  print(VlnPlot(combined, i, assay = "RNA"))
+}
+```
+
+```{r}
+dittoDimPlot(combined, "seurat_clusters", do.label = TRUE, legend.show = FALSE, labels.size = 3) 
+```
+
+
+
+## Finding Cluster Identifiers
+```{r}
+markers <- FindAllMarkers(combined, assay = "RNA", only.pos = TRUE, logfc.threshold = 0.5, test.use = "MAST", latent.vars = "SampleID") 
+
+clust_counts <- table(combined@meta.data[,"seurat_clusters"]) 
+
+clust_markers_list <- list() 
+
+for(i in unique(markers$cluster)){ 
+
+clustname <- paste0('cluster', i, '_N', clust_counts[i]) 
+
+clust_markers_list[[clustname]] <- subset(markers, markers$cluster == i) 
+
+rownames(clust_markers_list[[clustname]]) <- clust_markers_list[[clustname]]$gene 
+
+} 
+
+write.xlsx(clust_markers_list, file = paste0(home_dir, "/all_cell_markers_mouse_ortholog.xlsx"))
+```
+
+## Assign Idents
+```{r}
+Idents(combined) <- combined@meta.data$seurat_clusters 
+
+new.cluster.ids <- c("Neuron", "Oligodendrocyte", "Astrocyte", "Neuron", "Neuron",
+                     "Neuron", "Neuron", "Neuron", "Neuron", "Neuron",
+                     "Microglia", "Neuron", "Neuron", "Neuron", "Oligodendrocyte Precursor",
+                     "Endothelial", "Neuron", "Neuron", "Neuron", "Neuron",
+                     "Neuron", "Neuron", "Astrocyte", "Neuron", "Neuron",
+                     "Astrocyte", "Neuron", "Oligodendrocyte Precursor", "Neuron", "Endothelial",
+                     "Neuron", "Neuron", "Neuron", "Neuron", "Astrocyte")
+
+names(new.cluster.ids) <- levels(combined) 
+
+combined <- RenameIdents(combined, new.cluster.ids) 
+
+combined@meta.data$summary <- Idents(combined) 
+```
+
+```{r}
+dittoDimPlot(combined, "summary")
+dittoDimPlot(combined, "CellType")
+dittoDimPlot(combined, "seurat_clusters", do.label = TRUE, legend.show = FALSE, labels.size = 3) 
+```
+
+```{r}
+dittoDimPlot(combined, "Adcyap1")
+VlnPlot(combined, "Adcyap1") + theme(legend.position = "none")
+dittoDimPlot(combined, "Bdnf")
+VlnPlot(combined, "Bdnf") + theme(legend.position = "none")
+```
+
+
+```{r}
+Idents(combined) <- combined@meta.data$seurat_clusters 
+
+new.cluster.ids <- c("Neuron_0", "Oligodendrocyte_1", "Astrocyte_2", "Neuron_3", "Neuron_4",
+                     "Neuron_5", "Neuron_6", "Neuron_7", "Neuron_8", "Neuron_9",
+                     "Microglia_10", "Neuron_11", "Neuron_12", "Neuron_13", "Oligodendrocyte Precursor_14",
+                     "Endothelial_15", "Neuron_16", "Neuron_17", "Neuron_18", "Neuron_19",
+                     "Neuron_20", "Neuron_21", "Astrocyte_22", "Neuron_23", "Neuron_24",
+                     "Astrocyte_25", "Neuron_26", "Oligodendrocyte Precursor_27", "Neuron_28", "Endothelial_29",
+                     "Neuron_30", "Neuron_31", "Neuron_32", "Neuron_33", "Astrocyte_34")
+
+names(new.cluster.ids) <- levels(combined) 
+
+combined <- RenameIdents(combined, new.cluster.ids) 
+
+combined@meta.data$detail <- Idents(combined) 
+```
+
+```{r}
+dittoDimPlot(combined, "summary")
+dittoDimPlot(combined, "detail")
+dittoDimPlot(combined, "CellType")
+```
+Source used for cell type assignment
+https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6329831/
+
+
+```{r}
+table(combined@meta.data$summary, combined@meta.data$SampleID)
+```
+
+
+
+```{r}
+saveRDS(combined, file = paste0(home_dir, "/AD_mouse_objects_ortholog/mouse_adwt_labeled.RData"))
+combined <- readRDS(file = paste0(home_dir, "/AD_mouse_objects_ortholog/mouse_adwt_labeled.RData"))
+```
+
+

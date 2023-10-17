@@ -1,0 +1,164 @@
+---
+title: "AD Human Processing"
+author: "Alexander Bergendorf"
+date: "2023-06-19"
+output: html_document
+---
+
+# Library Import
+```{r}
+library(Seurat) 
+library(tidyverse) 
+library(patchwork) 
+library(dittoSeq) 
+library(stringr)
+library(gprofiler2)
+library(harmony)
+library(patchwork)
+library(cowplot)
+library(openxlsx)
+library(MAST)
+
+home_dir <- "C:/Users/aberg/OneDrive/Desktop/Brubaker Summer Research 2023"
+```
+
+
+# Finding Cluster Identifications
+```{r}
+combined <- readRDS(file = paste0(home_dir, "/AD_human_objects_ortholog/human_adc_final_ortholog.RData"))
+dittoDimPlot(combined, "seurat_clusters", do.label = TRUE, legend.show = FALSE, labels.size = 3) 
+```
+
+
+```{r}
+markers <- FindAllMarkers(combined, assay = "RNA", only.pos = TRUE, logfc.threshold = 0.5, test.use = "MAST", latent.vars = "orig.ident") 
+
+clust_counts <- table(combined@meta.data[,"seurat_clusters"]) 
+
+clust_markers_list <- list() 
+
+for(i in unique(markers$cluster)){ 
+
+clustname <- paste0('cluster', i, '_N', clust_counts[i]) 
+
+clust_markers_list[[clustname]] <- subset(markers, markers$cluster == i) 
+
+rownames(clust_markers_list[[clustname]]) <- clust_markers_list[[clustname]]$gene 
+
+} 
+
+write.xlsx(clust_markers_list, file = paste0(home_dir, "/all_cell_markers_human_ortholog.xlsx"))
+```
+
+```{r}
+dittoDimPlot(combined, "seurat_clusters", do.label = TRUE, legend.show = FALSE, labels.size = 3) 
+```
+
+
+
+```{r}
+marker_list <- c("RASGEF1B", "LINGO1",
+                 "BEX3", "ICA1", "NDUFA4", "STMN2",
+                 "CABLES1", "PREX2", "GRM3", "KCNIP4", "RLBP1",
+                 "CLDND1", "QDPR", "ANLN", "LDB3",
+                 "KCNIP1", "AHI1", "ATP13A4", "SOX8", "GADD45B",
+                 "CD81", "APOE", "APOC1", "SNCA",
+                 "NRGN", "GAD1", "AQP4", "MBP", "CSF1R", "CD74",
+                 "VCAN", "FLT1", "VWF")
+
+Idents(combined) <- combined@meta.data$seurat_clusters
+
+for(i in marker_list){
+  print(i)
+  
+  print(dittoDimPlot(combined, var = i, assay = "RNA"))
+  print(VlnPlot(combined, i, assay = "RNA"))
+}
+
+```
+
+Remove 23, doublet
+
+https://www.researchgate.net/publication/333831987_Author_Correction_Single-cell_transcriptomic_analysis_of_Alzheimer's_disease
+
+# Assign Idents
+```{r}
+combined <- subset(combined, subset = seurat_clusters == 23, invert = TRUE)
+Idents(combined) <- combined@meta.data$seurat_clusters 
+
+new.cluster.ids <- c("Oligodendrocyte", "Astrocyte", "Microglia", "Neuron", "Neuron",
+                     "Oligodendrocyte", "Oligodendrocyte Precursor", "Neuron", "Neuron", "Astrocyte", 
+                     "Neuron", "Neuron", "Neuron", "Endothelial", "Neuron",
+                     "Neuron", "Endothelial", "Neuron", "Neuron", "Neuron",
+                     "Neuron", "Oligodendrocyte Precursor", "Oligodendrocyte")
+
+names(new.cluster.ids) <- levels(combined) 
+
+combined <- RenameIdents(combined, new.cluster.ids) 
+
+combined@meta.data$summary <- Idents(combined) 
+```
+
+```{r}
+Idents(combined) <- combined@meta.data$seurat_clusters 
+
+new.cluster.ids <- c("Oligodendrocyte_0", "Astrocyte_1", "Microglia_2", "Neuron_3", "Neuron_4",
+                     "Oligodendrocyte_5", "Oligodendrocyte Precursor_6", "Neuron_7", "Neuron_8", "Astrocyte_9", 
+                     "Neuron_10", "Neuron_11", "Neuron_12", "Endothelial_13", "Neuron_14",
+                     "Neuron_15", "Endothelial_16", "Neuron_17", "Neuron_18", "Neuron_19",
+                     "Neuron_20", "Oligodendrocyte Precursor_21", "Oligodendrocyte_22")
+
+names(new.cluster.ids) <- levels(combined) 
+
+combined <- RenameIdents(combined, new.cluster.ids) 
+
+combined@meta.data$detail <- Idents(combined) 
+```
+
+```{r}
+dittoDimPlot(combined, "seurat_clusters", do.label = TRUE, legend.show = FALSE, labels.size = 3) 
+dittoDimPlot(combined, "summary")
+dittoDimPlot(combined, "detail")
+```
+
+```{r}
+saveRDS(combined, file = paste0(home_dir, "/AD_human_objects_ortholog/human_adwt_labeled_ortholog.RData"))
+#combined <- readRDS(file = paste0(home_dir, "/AD_human_objects_ortholog/human_adwt_labeled_ortholog.RData"))
+```
+
+
+
+
+# Cell Counts
+```{r}
+table(combined@meta.data$summary, combined@meta.data$Genotype)
+```
+
+```{r}
+combined_A1 <- subset(combined, subset = orig.ident == "A1")
+combined_A1@meta.data$orig.ident <- "AD_1"
+Idents(combined, cells = Cells(combined_A1)) <- combined_A1@meta.data$orig.ident
+
+combined_A1 <- subset(combined, subset = orig.ident == "A2")
+combined_A1@meta.data$orig.ident <- "C_1"
+Idents(combined, cells = Cells(combined_A1)) <- combined_A1@meta.data$orig.ident
+
+combined_A1 <- subset(combined, subset = orig.ident == "A3")
+combined_A1@meta.data$orig.ident <- "AD_2"
+Idents(combined, cells = Cells(combined_A1)) <- combined_A1@meta.data$orig.ident
+
+combined_A1 <- subset(combined, subset = orig.ident == "A4")
+combined_A1@meta.data$orig.ident <- "C_2"
+Idents(combined, cells = Cells(combined_A1)) <- combined_A1@meta.data$orig.ident
+
+combined@meta.data$orig.ident <- Idents(combined)
+```
+
+```{r}
+table(combined@meta.data$summary, combined@meta.data$orig.ident)
+```
+
+```{r}
+sessionInfo()
+```
+
