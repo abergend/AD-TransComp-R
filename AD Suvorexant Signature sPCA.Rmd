@@ -1,0 +1,132 @@
+---
+title: "AD Suvorexant Signature"
+author: "Alexander Bergendorf"
+date: "2023-10-20"
+output: html_document
+---
+
+# Library Import
+```{r}
+library(Seurat)
+library(mixOmics)
+library(h2o)
+library(tidyverse)
+library(orthogene)
+library(dittoSeq)
+library(openxlsx)
+library(readr)
+library(ggcorrplot)
+home_dir <- "C:/Users/aberg/OneDrive/Desktop/Brubaker Summer Research 2023"
+```
+
+# sPCA
+```{r}
+combined <- readRDS(file = paste0(home_dir, "/AD_mouse_objects_ortholog/mouse_spca_loadings.RData"))
+```
+
+```{r}
+suvo <- read_tsv(paste0(home_dir, "/AD_human_objects_ortholog/cp_mean_coeff_suvo.tsv"))
+```
+```{r}
+suvo <- suvo[,-1]
+suvo <- data.frame(t(suvo))
+colnames(suvo) <- c("Suvorexant_score")
+suvo
+```
+
+```{r}
+spca_loadings <- data.frame(combined@reductions$spca@feature.loadings)
+```
+
+
+```{r}
+nrow(suvo)
+nrow(spca_loadings)
+```
+
+```{r}
+mouse_genes <- row.names(spca_loadings)
+human_genes <- row.names(suvo)
+```
+
+```{r}
+adjusted_mouse <- convert_orthologs(gene_df = mouse_genes,
+                                    input_species = "mouse",
+                                    output_species = "human",
+                                    non121_strategy = "drop_both_species")
+```
+
+```{r}
+adjusted_human <- convert_orthologs(gene_df = human_genes,
+                                    input_species = "human",
+                                    output_species = "mouse",
+                                    non121_strategy = "drop_both_species")
+```
+
+```{r}
+length(row.names(adjusted_mouse))
+adjusted_mouse <- adjusted_mouse %>%
+  filter(row.names(adjusted_mouse) %in% adjusted_human$input_gene)
+length(row.names(adjusted_mouse))
+```
+
+```{r}
+length(row.names(adjusted_human))
+adjusted_human <- adjusted_human %>%
+  filter(row.names(adjusted_human) %in% adjusted_mouse$input_gene)
+length(row.names(adjusted_human))
+```
+
+```{r}
+length(row.names(adjusted_mouse))
+adjusted_mouse <- adjusted_mouse %>%
+  filter(row.names(adjusted_mouse) %in% adjusted_human$input_gene)
+length(row.names(adjusted_mouse))
+```
+
+```{r}
+suvo <- suvo %>%
+  filter(row.names(suvo) %in% adjusted_human$input_gene)
+row.names(suvo) <- row.names(adjusted_human)
+suvo
+```
+
+```{r}
+spca_loadings <- spca_loadings %>%
+  filter(row.names(spca_loadings) %in% adjusted_mouse$input_gene)
+spca_loadings
+```
+
+```{r}
+suvo <- suvo %>%
+  arrange(row.names(suvo))
+spca_loadings <- spca_loadings %>%
+  arrange(row.names(spca_loadings))
+```
+
+```{r}
+head(suvo)
+head(spca_loadings)
+```
+
+```{r}
+significant_pcs <- c(1, 2, 3, 4, 6, 8, 9, 10, 11, 13, 14, 19, 22,
+                     24, 25, 26, 41, 42, 43, 50)
+spca_loadings <- spca_loadings[,significant_pcs]
+```
+
+
+```{r}
+suvo_mouse_cor_spca <- cor(spca_loadings, suvo, method = c("spearman"))
+```
+
+```{r}
+ggcorrplot(suvo_mouse_cor_spca)
+```
+
+```{r}
+max(suvo_mouse_cor_spca)
+min(suvo_mouse_cor_spca)
+```
+
+

@@ -39,16 +39,6 @@ metadata <- read.table(file = paste0(home_dir, "/AD_mouse_raw/GSE208683_Allcell_
 metadata <- metadata[1:15013,]
 ```
 
-```{r}
-mouse_orthologs <- readRDS(file = paste0(home_dir, "/AD_mouse_objects/mouse_orthologs.RData"))
-```
-
-
-```{r}
-counts <- counts %>%
-  filter(row.names(counts) %in% mouse_orthologs)
-```
-
 
 ## Create Object
 ```{r}
@@ -60,8 +50,8 @@ rm(counts, metadata)
 
 
 ```{r}
-saveRDS(wild_type, file = paste0(home_dir, "/wt_ortholog.RData"))
-#wild_type <- readRDS(file = paste0(home_dir, "/wt.RData"))
+saveRDS(wild_type, file = paste0(home_dir, "/AD_mouse_objects_ortholog/wt_ortholog.RData"))
+#wild_type <- readRDS(file = paste0(home_dir, "/AD_mouse_objects_ortholog/wt_ortholog.RData"))
 ```
 
 
@@ -79,11 +69,6 @@ metadata <- read.table(file = paste0(home_dir, "/AD_mouse_raw/GSE208683_Allcell_
 metadata <- metadata[31849:46510,]
 ```
 
-```{r}
-counts <- counts %>%
-  filter(row.names(counts) %in% mouse_orthologs)
-```
-
 ## Create Object
 ```{r}
 colnames(counts) <- gsub("\\.", "-", colnames(counts))
@@ -94,8 +79,8 @@ rm(counts, metadata)
 
 
 ```{r}
-saveRDS(ad, file = paste0(home_dir, "/ad_ortholog.RData"))
-#ad <- readRDS(file = paste0(home_dir, "/ad.RData"))
+saveRDS(ad, file = paste0(home_dir, "/AD_mouse_objects_ortholog/ad_ortholog.RData"))
+#ad <- readRDS(file = paste0(home_dir, "/AD_mouse_objects_ortholog/ad_ortholog.RData"))
 ```
 
 # Merging and Processing Data
@@ -109,10 +94,23 @@ rm(ad, wild_type)
 ```
 
 
+
 ```{r}
 head(combined$AD_1@meta.data)
 samples <- c("AD_1", "AD_2", "WT_1", "WT_2")
 ```
+
+```{r}
+mouse_ortholog <- readRDS(file = paste0(home_dir, "/AD_mouse_objects_ortholog/mouse_orthologs.RData"))
+```
+
+
+```{r}
+for(i in samples){
+  combined[[i]] <- combined[[i]][mouse_ortholog]
+}
+```
+
 
 
 ## QC and Visualization
@@ -149,6 +147,7 @@ for(i in samples){
 combined <- lapply(X = combined, FUN = SCTransform,  method ="glmGamPoi", return.only.var.genes = FALSE, vars.to.regress = c("S.Score", "G2M.Score")) 
 ```
 
+
 ```{r}
 saveRDS(combined, file = paste0(home_dir, "/AD_mouse_objects_ortholog/combined_ortholog.RData"))
 #combined <- readRDS(file = paste0(home_dir, "/AD_mouse_objects_ortholog/combined_ortholog.RData"))
@@ -166,9 +165,6 @@ combined <- merge(x = combined[[1]], y = combined[2:length(combined)], merge.dat
 VariableFeatures(combined) <- variable.features 
 ```
 
-```{r}
-table(combined@meta.data$CellType, combined@meta.data$SampleID)
-```
 
 ```{r}
 combined <- RunPCA(combined, verbose = FALSE) 
@@ -238,8 +234,8 @@ dittoDimPlot(combined, "Phase")
 ```
 
 ```{r}
-saveRDS(combined, file = paste0(home_dir, "/AD_mouse_objects_ortholog/mouse_adwt_final.RData"))
-#combined <- readRDS(file = paste0(home_dir, "/AD_mouse_objects_ortholog/mouse_adwt_final.RData"))
+#saveRDS(combined, file = paste0(home_dir, "/AD_mouse_objects_ortholog/mouse_adwt_final.RData"))
+combined <- readRDS(file = paste0(home_dir, "/AD_mouse_objects_ortholog/mouse_adwt_final.RData"))
 ```
 
 
@@ -257,6 +253,10 @@ for(i in marker_list){
 
 ```{r}
 dittoDimPlot(combined, "seurat_clusters", do.label = TRUE, legend.show = FALSE, labels.size = 3) 
+```
+
+```{r}
+table(combined@meta.data$seurat_clusters, combined@meta.data$CellType)
 ```
 
 
@@ -286,13 +286,13 @@ write.xlsx(clust_markers_list, file = paste0(home_dir, "/all_cell_markers_mouse_
 ```{r}
 Idents(combined) <- combined@meta.data$seurat_clusters 
 
-new.cluster.ids <- c("Neuron", "Oligodendrocyte", "Astrocyte", "Neuron", "Neuron",
+new.cluster.ids <- c("Oligodendrocyte", "Neuron", "Astrocyte", "Neuron", "Neuron",
                      "Neuron", "Neuron", "Neuron", "Neuron", "Neuron",
-                     "Microglia", "Neuron", "Neuron", "Neuron", "Oligodendrocyte Precursor",
-                     "Endothelial", "Neuron", "Neuron", "Neuron", "Neuron",
-                     "Neuron", "Neuron", "Astrocyte", "Neuron", "Neuron",
-                     "Astrocyte", "Neuron", "Oligodendrocyte Precursor", "Neuron", "Endothelial",
-                     "Neuron", "Neuron", "Neuron", "Neuron", "Astrocyte")
+                     "Neuron", "Microglia", "Neuron", "Oligodendrocyte Precursor", "Neuron",
+                     "Neuron", "Neuron", "Endothelial", "Neuron", "Neuron",
+                     "Neuron", "Neuron", "Astrocyte", "Neuron", "Astrocyte",
+                     "Neuron", "Neuron", "Neuron", "Neuron", "Neuron",
+                     "Neuron", "Endothelial", "Microglia", "Microglia", "Oligodendrocyte Precursor")
 
 names(new.cluster.ids) <- levels(combined) 
 
@@ -318,13 +318,13 @@ VlnPlot(combined, "Bdnf") + theme(legend.position = "none")
 ```{r}
 Idents(combined) <- combined@meta.data$seurat_clusters 
 
-new.cluster.ids <- c("Neuron_0", "Oligodendrocyte_1", "Astrocyte_2", "Neuron_3", "Neuron_4",
+new.cluster.ids <- c("Oligodendrocyte_0", "Neuron_1", "Astrocyte_2", "Neuron_3", "Neuron_4",
                      "Neuron_5", "Neuron_6", "Neuron_7", "Neuron_8", "Neuron_9",
-                     "Microglia_10", "Neuron_11", "Neuron_12", "Neuron_13", "Oligodendrocyte Precursor_14",
-                     "Endothelial_15", "Neuron_16", "Neuron_17", "Neuron_18", "Neuron_19",
-                     "Neuron_20", "Neuron_21", "Astrocyte_22", "Neuron_23", "Neuron_24",
-                     "Astrocyte_25", "Neuron_26", "Oligodendrocyte Precursor_27", "Neuron_28", "Endothelial_29",
-                     "Neuron_30", "Neuron_31", "Neuron_32", "Neuron_33", "Astrocyte_34")
+                     "Neuron_10", "Microglia_11", "Neuron_12", "Oligodendrocyte Precursor_13", "Neuron_14",
+                     "Neuron_15", "Neuron_16", "Endothelial_17", "Neuron_18", "Neuron_19",
+                     "Neuron_20", "Neuron_21", "Astrocyte_22", "Neuron_23", "Astrocyte_24",
+                     "Neuron_25", "Neuron_26", "Neuron_27", "Neuron_28", "Neuron_29",
+                     "Neuron_30", "Endothelial_31", "Microglia_32", "Microglia_33", "Oligodendrocyte Precursor_34")
 
 names(new.cluster.ids) <- levels(combined) 
 
@@ -340,6 +340,8 @@ dittoDimPlot(combined, "CellType")
 ```
 Source used for cell type assignment
 https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6329831/
+https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6671143/ 
+https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6655561/
 
 
 ```{r}
@@ -349,8 +351,78 @@ table(combined@meta.data$summary, combined@meta.data$SampleID)
 
 
 ```{r}
-saveRDS(combined, file = paste0(home_dir, "/AD_mouse_objects_ortholog/mouse_adwt_labeled.RData"))
+#saveRDS(combined, file = paste0(home_dir, "/AD_mouse_objects_ortholog/mouse_adwt_labeled.RData"))
 combined <- readRDS(file = paste0(home_dir, "/AD_mouse_objects_ortholog/mouse_adwt_labeled.RData"))
+```
+
+# Visualization
+## 1D
+```{r}
+p1 <- dittoDimPlot(combined, "summary")
+
+cairo_ps(filename= paste0(home_dir, "/Figures/Figure 1/1D.eps"), width = 9, height = 7) # name the file as an EPS
+p1 #variable of the figure that is defined/saved, can be used any name
+dev.off()
+```
+
+Remove 33 (Doublets)
+
+## 1E
+Markers
+Endothelial: Igfbp7 (Cluster 17, 31)
+Microglia: Trem2, Mrc1 (Cluster 11)
+Oligodendrocyte Precursor: Matn4, Olig2, Pdgfr1 (Cluster 13, 34)
+Astrocytes: Hes5, Aldh1l1 (Cluster 2, 22, 24)
+Oligodendrocyte: Mbp, Mobp, Mog(Cluster 13, 34)
+Neuron: Reln, Satb2, Fezf2, Crym, Bcl11b, Sst, Lnx6, Adarb2, Gad2 (Rest)
+```{r}
+markers <- c("Reln", "Satb2",
+             "Mbp", "Mobp", "Mog", 
+             "Matn4", "Pdgfra", 
+             "Hes5", "Aldh1l1", 
+             "Igfbp7",
+             "Trem2", "Mrc1")
+Idents(combined) <- combined@meta.data$summary
+levels(combined) <- c("Neuron", "Oligodendrocyte", "Oligodendrocyte Precursor", "Astrocyte", "Endothelial", "Microglia")
+combined <- ScaleData(combined, assay = "RNA")
+p1 <- DoHeatmap(combined, markers, assay = "RNA", label = FALSE)
+
+cairo_ps(filename= paste0(home_dir, "/Figures/Figure 1/1E.eps"), width = 9, height = 7) # name the file as an EPS
+p1 #variable of the figure that is defined/saved, can be used any name
+dev.off()
+```
+
+```{r}
+markers <- rev(markers)
+p2 <- DotPlot(combined, features = markers, assay = "RNA") + 
+  theme(axis.text.x = element_text(angle = 45, hjust=1))
+cairo_ps(filename= paste0(home_dir, "/Figures/Figure 1/1E_dotplot.eps"), width = 9, height = 7) # name the file as an EPS
+p2 #variable of the figure that is defined/saved, can be used any name
+dev.off()
+```
+
+
+
+```{r}
+dittoHeatmap(combined, markers, assay = "RNA", annot.by = c("summary", "seurat_clusters"), order.by = , cluster_rows = FALSE)
+```
+
+```{r}
+levels(combined) <- c("Neuron", "Oligodendrocyte", "Oligodendrocyte Precursor", "Astrocyte", "Endothelial", "Microglia")
+```
+
+```{r}
+cell_count_table <- table(combined@meta.data$summary, combined@meta.data$Genotype)
+write.csv(cell_count_table, file = paste0(home_dir, "/Figures/Figure 1/mouse_counts.csv"))
+```
+
+
+
+```{r}
+for(i in markers){
+  print(i)
+  dittoDimPlot(combined, i)
+}
 ```
 
 

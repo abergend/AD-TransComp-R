@@ -93,4 +93,27 @@ rownames(clust_markers_list[[clustname]]) <- clust_markers_list[[clustname]]$gen
 
 clust_markers_list$cluster5_N49
 ```
+# Cell Counts
+```{r}
+cell_counts <- read.csv(file = paste0(home_dir, "/Figures/Figure 1/cell_counts.csv"))
+cell_counts
+```
+
+```{r}
+cell_counts$Sample <- as.factor(cell_counts$Sample)
+cell_counts
+```
+
+
+```{r}
+levels(cell_counts$Sample) <- c("5XFAD", "AD", "WT", "Control")
+p <- ggplot(data=cell_counts, aes(x=Cell_Type, y=Count, fill=Sample)) +
+geom_bar(stat="identity", color="black", position=position_dodge())+
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust=1))
+
+cairo_ps(filename= paste0(home_dir, "/Figures/Figure 1/1F.eps"), width = 9, height = 7) # name the file as an EPS
+p #variable of the figure that is defined/saved, can be used any name
+dev.off()
+```
 

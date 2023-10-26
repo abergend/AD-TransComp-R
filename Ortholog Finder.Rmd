@@ -13,10 +13,75 @@ home_dir <- "C:/Users/aberg/OneDrive/Desktop/Brubaker Summer Research 2023"
 ```
 
 # Data Import
+## Human
 ```{r}
-mouse_genes <- readRDS(file = paste0(home_dir, "/AD_mouse_objects/mouse_genes.RData"))
-human_genes <- readRDS(file = paste0(home_dir, "/AD_human_objects/human_genes.RData"))
+samples <- c("A1", "A2", "A3", "A4")
+names <- c("AD1", "C1", "AD2", "C2")
+data_list <- list()
+
+for(i in samples){ 
+  data <- Read10X(paste0(home_dir, "/AD_human_raw/", i)) 
+  data_list[[i]] <- data 
+} 
+
+for(i in samples){ 
+  data_list[[i]] <- CreateSeuratObject(counts = data_list[[i]], project = i) 
+} 
+
+human_genes <- row.names(data_list$A1@assays$RNA)
+rm(data_list, data)
 ```
+
+## Mouse
+```{r}
+# Wild Type
+rownames <- rep("character", 1)
+control <- rep("integer", 15013)
+other <- rep("NULL", 46936)
+colClasses <- c(rownames, control, other)
+# Normal Cells
+counts <- read.table(file = paste0(home_dir, "/AD_mouse_raw/GSE208683_Allcell_6m_UMI_matrix.txt"), sep = "\t", colClasses = colClasses)
+metadata <- read.table(file = paste0(home_dir, "/AD_mouse_raw/GSE208683_Allcell_6m_meta_data.txt"), sep = "\t")
+
+metadata <- metadata[1:15013,]
+
+colnames(counts) <- gsub("\\.", "-", colnames(counts))
+wild_type <- CreateSeuratObject(counts = counts, meta.data = metadata)
+rm(counts,metadata)
+
+# 5XFAD
+rownames <- rep("character", 1)
+other1 <- rep("NULL", 31848)
+ad <- rep("integer", 14662)
+other2 <- rep("NULL",15439)
+colClasses <- c(rownames, other1, ad, other2)
+# Normal Cells
+counts <- read.table(file = paste0(home_dir, "/AD_mouse_raw/GSE208683_Allcell_6m_UMI_matrix.txt"), sep = "\t", colClasses = colClasses)
+metadata <- read.table(file = paste0(home_dir, "/AD_mouse_raw/GSE208683_Allcell_6m_meta_data.txt"), sep = "\t")
+metadata <- metadata[31849:46510,]
+
+colnames(counts) <- gsub("\\.", "-", colnames(counts))
+ad <- CreateSeuratObject(counts = counts, meta.data = metadata)
+rm(counts, metadata)
+```
+
+```{r}
+ad <- SplitObject(ad, split.by = "SampleID")
+wild_type <- SplitObject(wild_type, split.by = "SampleID")
+combined <- c(ad, wild_type)
+rm(ad, wild_type)
+```
+
+```{r}
+mouse_genes <- row.names(combined$AD_1@assays$RNA@counts)
+```
+
+```{r}
+saveRDS(human_genes, file = paste0(home_dir, "/AD_human_objects_ortholog/human_genes.RData"))
+saveRDS(mouse_genes, file = paste0(home_dir, "/AD_mouse_objects_ortholog/mouse_genes.RData"))
+```
+
+
 
 ```{r}
 length(mouse_genes)
@@ -59,11 +124,13 @@ adjusted_mouse <- adjusted_mouse %>%
 length(row.names(adjusted_mouse))
 ```
 
+
+
 ```{r}
 mouse_orthologs <- adjusted_mouse$input_gene
-saveRDS(mouse_orthologs, file = paste0(home_dir, "/AD_mouse_objects/mouse_orthologs.RData"))
+saveRDS(mouse_orthologs, file = paste0(home_dir, "/AD_mouse_objects_ortholog/mouse_orthologs.RData"))
 
 human_orthologs <- adjusted_human$input_gene
-saveRDS(human_orthologs, file = paste0(home_dir, "/AD_human_objects/human_orthologs.RData"))
+saveRDS(human_orthologs, file = paste0(home_dir, "/AD_human_objects_ortholog/human_orthologs.RData"))
 ```
 

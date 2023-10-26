@@ -30,6 +30,7 @@ dittoDimPlot(combined, "seurat_clusters", do.label = TRUE, legend.show = FALSE, 
 ```
 
 
+
 ```{r}
 markers <- FindAllMarkers(combined, assay = "RNA", only.pos = TRUE, logfc.threshold = 0.5, test.use = "MAST", latent.vars = "orig.ident") 
 
@@ -77,19 +78,16 @@ for(i in marker_list){
 
 ```
 
-Remove 23, doublet
-
 https://www.researchgate.net/publication/333831987_Author_Correction_Single-cell_transcriptomic_analysis_of_Alzheimer's_disease
 
 # Assign Idents
 ```{r}
-combined <- subset(combined, subset = seurat_clusters == 23, invert = TRUE)
 Idents(combined) <- combined@meta.data$seurat_clusters 
 
 new.cluster.ids <- c("Oligodendrocyte", "Astrocyte", "Microglia", "Neuron", "Neuron",
-                     "Oligodendrocyte", "Oligodendrocyte Precursor", "Neuron", "Neuron", "Astrocyte", 
+                     "Oligodendrocyte", "Oligodendrocyte Precursor", "Neuron", "Neuron", "Astrocyte",
                      "Neuron", "Neuron", "Neuron", "Endothelial", "Neuron",
-                     "Neuron", "Endothelial", "Neuron", "Neuron", "Neuron",
+                     "Neuron", "Endothelial", "Neuron", "Neuron", "Neuron", 
                      "Neuron", "Oligodendrocyte Precursor", "Oligodendrocyte")
 
 names(new.cluster.ids) <- levels(combined) 
@@ -103,9 +101,9 @@ combined@meta.data$summary <- Idents(combined)
 Idents(combined) <- combined@meta.data$seurat_clusters 
 
 new.cluster.ids <- c("Oligodendrocyte_0", "Astrocyte_1", "Microglia_2", "Neuron_3", "Neuron_4",
-                     "Oligodendrocyte_5", "Oligodendrocyte Precursor_6", "Neuron_7", "Neuron_8", "Astrocyte_9", 
+                     "Oligodendrocyte_5", "Oligodendrocyte Precursor_6", "Neuron_7", "Neuron_8", "Astrocyte_9",
                      "Neuron_10", "Neuron_11", "Neuron_12", "Endothelial_13", "Neuron_14",
-                     "Neuron_15", "Endothelial_16", "Neuron_17", "Neuron_18", "Neuron_19",
+                     "Neuron_15", "Endothelial_16", "Neuron_17", "Neuron_18", "Neuron_19", 
                      "Neuron_20", "Oligodendrocyte Precursor_21", "Oligodendrocyte_22")
 
 names(new.cluster.ids) <- levels(combined) 
@@ -122,16 +120,65 @@ dittoDimPlot(combined, "detail")
 ```
 
 ```{r}
-saveRDS(combined, file = paste0(home_dir, "/AD_human_objects_ortholog/human_adwt_labeled_ortholog.RData"))
-#combined <- readRDS(file = paste0(home_dir, "/AD_human_objects_ortholog/human_adwt_labeled_ortholog.RData"))
+#saveRDS(combined, file = paste0(home_dir, "/AD_human_objects_ortholog/human_adwt_labeled_ortholog.RData"))
+combined <- readRDS(file = paste0(home_dir, "/AD_human_objects_ortholog/human_adwt_labeled_ortholog.RData"))
+```
+
+# Visualization
+## 1B
+```{r}
+p1 <- dittoDimPlot(combined, "summary")
+
+cairo_ps(filename= paste0(home_dir, "/Figures/Figure 1/1B.eps"), width = 9, height = 7) # name the file as an EPS
+p1 #variable of the figure that is defined/saved, can be used any name
+dev.off()
 ```
 
 
+## 1C
+Markers
+Endothelial: 13, 16 (FLT1, VWF)
+Microglia: 2 (CSF1R, CD74)
+Oligodendrocyte Precursor: 6, 21 (VCAN,)
+Astrocytes: 1, 9 (AQP4, CABLES1)
+Oligodendrocyte: 0, 5, 22 ()
+Neuron: All other cluster (NRGN, GAD1)
+
+```{r}
+markers <- c("NRGN", "GAD1",
+             "ANLN",
+             "VCAN",
+             "AQP4", "CABLES1",
+             "FLT1", "VWF",
+             "CSF1R")
+Idents(combined) <- combined@meta.data$summary
+levels(combined) <- c("Neuron", "Oligodendrocyte", "Oligodendrocyte Precursor", "Astrocyte", "Endothelial", "Microglia")
+combined <- ScaleData(combined, assay = "RNA")
+p1 <- DoHeatmap(combined, markers, assay = "RNA", label = FALSE)
+
+cairo_ps(filename= paste0(home_dir, "/Figures/Figure 1/1C.eps"), width = 9, height = 7) # name the file as an EPS
+p1 #variable of the figure that is defined/saved, can be used any name
+dev.off()
+```
+
+```{r}
+markers <- rev(markers)
+p2 <- DotPlot(combined, features = markers, assay = "RNA") + 
+  theme(axis.text.x = element_text(angle = 45, hjust=1))
+cairo_ps(filename= paste0(home_dir, "/Figures/Figure 1/1C_dotplot.eps"), width = 9, height = 7) # name the file as an EPS
+p2 #variable of the figure that is defined/saved, can be used any name
+dev.off()
+```
+
+```{r}
+p1
+```
 
 
 # Cell Counts
 ```{r}
-table(combined@meta.data$summary, combined@meta.data$Genotype)
+cell_count_table <- table(combined@meta.data$summary, combined@meta.data$Genotype)
+write.csv(cell_count_table, file = paste0(home_dir, "/Figures/Figure 1/human_counts.csv"))
 ```
 
 ```{r}
@@ -157,6 +204,9 @@ combined@meta.data$orig.ident <- Idents(combined)
 ```{r}
 table(combined@meta.data$summary, combined@meta.data$orig.ident)
 ```
+
+
+
 
 ```{r}
 sessionInfo()

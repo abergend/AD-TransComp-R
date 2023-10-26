@@ -138,6 +138,9 @@ table(human@meta.data$Genotype, human@meta.data$dv)
 ```
 
 
+```{r}
+saveRDS(human, file = paste0(home_dir, "/AD_human_objects_ortholog/human_mouse_proj_spca.RData"))
+```
 
 
 ```{r}
@@ -160,25 +163,23 @@ summary(ad.model)
 
 ```{r}
 saveRDS(ad.model, file = paste0(home_dir, "/AD_human_objects_ortholog/spca_glm.RData"))
-saveRDS(human, file = paste0(home_dir, "/AD_human_objects_ortholog/human_mouse_proj_spca.RData"))
 ```
 
 ## RErunning GLM with significant PCs
 ```{r}
-human <- readRDS(file = paste0(home_dir, "/AD_human_objects_ortholog/human_mouse_proj_spca.RData"))
+#human <- readRDS(file = paste0(home_dir, "/AD_human_objects_ortholog/human_mouse_proj_spca.RData"))
 ```
 
 ```{r}
 # Run GLM
-ad.model2 <- glm(dv ~ spcaproj_1 + spcaproj_2 + spcaproj_3 + spcaproj_4 + spcaproj_5 + 
-                  spcaproj_6 + spcaproj_7 + spcaproj_8 + spcaproj_9 + 
-                  spcaproj_12 + spcaproj_13 + spcaproj_14 +
-                  spcaproj_19 + spcaproj_20 +
-                  spcaproj_21 + spcaproj_22 + spcaproj_23 + spcaproj_24 + spcaproj_25 +
-                  spcaproj_27 + spcaproj_28 + 
-                  spcaproj_32 + spcaproj_33 + spcaproj_35 +
-                   spcaproj_40 + 
-                  spcaproj_42 + spcaproj_49 + spcaproj_50,
+ad.model2 <- glm(dv ~ spcaproj_1 + spcaproj_2 + spcaproj_3 + spcaproj_4 + 
+                  spcaproj_6 + spcaproj_8 + spcaproj_9 + spcaproj_10 +
+                  spcaproj_11 + spcaproj_13 + spcaproj_14 +
+                  spcaproj_19 +
+                  spcaproj_22 + spcaproj_24 + spcaproj_25 +
+                  spcaproj_26 +
+                  spcaproj_41 + spcaproj_42 + spcaproj_43 +
+                  spcaproj_50,
                   data = human@meta.data, family = binomial)
 ```
 
@@ -192,18 +193,18 @@ saveRDS(ad.model2, file = paste0(home_dir, "/AD_human_objects_ortholog/spca_glm2
 
 ## RErunning GLM with Highly Significant PCs
 ```{r}
-human <- readRDS(file = paste0(home_dir, "/AD_human_objects_ortholog/human_mouse_proj_spca.RData"))
+#human <- readRDS(file = paste0(home_dir, "/AD_human_objects_ortholog/human_mouse_proj_spca.RData"))
 ```
 
-Highly significant PCs include 1, 2, 3, 6, 7, 12, 21, 27
 
 ```{r}
 # Run GLM
-ad.model3 <- glm(dv ~ spcaproj_1 + spcaproj_2 + spcaproj_3 + 
-                  spcaproj_6 + spcaproj_7 +
-                  spcaproj_12 +
-                  spcaproj_21 + 
-                  spcaproj_27, data = human@meta.data, family = binomial)
+ad.model3 <- glm(dv ~ spcaproj_2 + spcaproj_3 + spcaproj_4 +
+                  spcaproj_6 + spcaproj_9 + spcaproj_10 +
+                  spcaproj_11 + spcaproj_13 +
+                  spcaproj_19 + 
+                  spcaproj_22 + spcaproj_24 +
+                  spcaproj_43, data = human@meta.data, family = binomial)
 ```
 
 ```{r}
@@ -233,7 +234,7 @@ summary(ad.model3)
 
 
 ```{r}
-DimPlot(human, reduction = "spca_projections", dims = c(2, 6F), group.by = "Genotype")
+DimPlot(human, reduction = "spca_projections", dims = c(1, 6), group.by = "Genotype")
 ```
 
 ```{r}
