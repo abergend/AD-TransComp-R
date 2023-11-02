@@ -127,7 +127,11 @@ combined <- readRDS(file = paste0(home_dir, "/AD_human_objects_ortholog/human_ad
 # Visualization
 ## 1B
 ```{r}
-p1 <- dittoDimPlot(combined, "summary")
+Idents(combined) <- combined@meta.data$summary
+levels(combined) <- c("Astrocyte", "Endothelial", "Microglia", 
+                      "Neuron", "Oligodendrocyte", "Oligodendrocyte Precursor")
+
+p1 <- dittoDimPlot(combined, Idents(combined))
 
 cairo_ps(filename= paste0(home_dir, "/Figures/Figure 1/1B.eps"), width = 9, height = 7) # name the file as an EPS
 p1 #variable of the figure that is defined/saved, can be used any name
@@ -152,7 +156,8 @@ markers <- c("NRGN", "GAD1",
              "FLT1", "VWF",
              "CSF1R")
 Idents(combined) <- combined@meta.data$summary
-levels(combined) <- c("Neuron", "Oligodendrocyte", "Oligodendrocyte Precursor", "Astrocyte", "Endothelial", "Microglia")
+levels(combined) <- c("Astrocyte", "Endothelial", "Microglia", 
+                      "Neuron", "Oligodendrocyte", "Oligodendrocyte Precursor")
 combined <- ScaleData(combined, assay = "RNA")
 p1 <- DoHeatmap(combined, markers, assay = "RNA", label = FALSE)
 

@@ -14,6 +14,7 @@ library(h2o)
 library(tidyverse)
 library(orthogene)
 library(dittoSeq)
+library(elasticnet)
 home_dir <- "C:/Users/aberg/OneDrive/Desktop/Brubaker Summer Research 2023"
 ```
 
@@ -30,12 +31,12 @@ combined <- subset(combined, cells = good_microglia)
 combined
 ```
 
+
 ```{r}
 DefaultAssay(combined) <- "RNA"
 combined <- NormalizeData(combined)
-combined <- FindVariableFeatures(combined, selection.method = "vst", nfeatures = 3000)
 all.genes <- rownames(combined)
-combined <- ScaleData(combined, features = all.genes)
+combined <- ScaleData(combined, features = all.genes, do.center = FALSE)
 ```
 
 
@@ -43,9 +44,11 @@ combined <- ScaleData(combined, features = all.genes)
 mouse_mat <- as.matrix(t(combined@assays$RNA@scale.data))
 ```
 
+
+
 ## Run sPCA
 ```{r}
-mouse_embeddings <- spca(mouse_mat, ncomp = 50, scale = FALSE, center = FALSE)
+mouse_embeddings <- mixOmics::spca(mouse_mat, ncomp = 50, scale = FALSE, center = TRUE)
 ```
 
 
@@ -54,6 +57,7 @@ mouse_embeddings <- spca(mouse_mat, ncomp = 50, scale = FALSE, center = FALSE)
 combined[["spca"]] <- CreateDimReducObject(embeddings = mouse_embeddings$x, loadings = mouse_embeddings$rotation, key = "spca")
 saveRDS(combined, file = paste0(home_dir, "/AD_mouse_objects_ortholog/mouse_spca_loadings.RData"))
 ```
+
 ```{r}
 combined <- readRDS(file = paste0(home_dir, "/AD_mouse_objects_ortholog/mouse_spca_loadings.RData"))
 ```
@@ -139,7 +143,8 @@ table(human@meta.data$Genotype, human@meta.data$dv)
 
 
 ```{r}
-saveRDS(human, file = paste0(home_dir, "/AD_human_objects_ortholog/human_mouse_proj_spca.RData"))
+#(human, file = paste0(home_dir, "/AD_human_objects_ortholog/human_mouse_proj_spca.RData"))\
+human <- readRDS(paste0(home_dir, "/AD_human_objects_ortholog/human_mouse_proj_spca.RData"))
 ```
 
 
@@ -161,6 +166,8 @@ ad.model <- glm(dv ~ spcaproj_1 + spcaproj_2 + spcaproj_3 + spcaproj_4 + spcapro
 summary(ad.model)
 ```
 
+
+
 ```{r}
 saveRDS(ad.model, file = paste0(home_dir, "/AD_human_objects_ortholog/spca_glm.RData"))
 ```
@@ -170,16 +177,20 @@ saveRDS(ad.model, file = paste0(home_dir, "/AD_human_objects_ortholog/spca_glm.R
 #human <- readRDS(file = paste0(home_dir, "/AD_human_objects_ortholog/human_mouse_proj_spca.RData"))
 ```
 
+2, 3, 4, 6, 7, 9, 10, 11, 12, 14, 15, 17, 20, 22, 23, 24, 25, 29, 30, 32, 36, 42, 45, 46, 47, 50
 ```{r}
 # Run GLM
-ad.model2 <- glm(dv ~ spcaproj_1 + spcaproj_2 + spcaproj_3 + spcaproj_4 + 
-                  spcaproj_6 + spcaproj_8 + spcaproj_9 + spcaproj_10 +
-                  spcaproj_11 + spcaproj_13 + spcaproj_14 +
-                  spcaproj_19 +
-                  spcaproj_22 + spcaproj_24 + spcaproj_25 +
-                  spcaproj_26 +
-                  spcaproj_41 + spcaproj_42 + spcaproj_43 +
-                  spcaproj_50,
+ad.model2 <- glm(dv ~ spcaproj_2 + spcaproj_3 + spcaproj_4 +
+                   spcaproj_6 + spcaproj_7 + spcaproj_9 + spcaproj_10 +
+                   spcaproj_11 + spcaproj_12 + spcaproj_14 + spcaproj_15 + 
+                   spcaproj_17 + spcaproj_20 + 
+                   spcaproj_22 + spcaproj_23 + spcaproj_24 + spcaproj_25 +
+                   spcaproj_29 + spcaproj_30 +
+                   spcaproj_32 + 
+                   spcaproj_36 +
+                   spcaproj_42 + spcaproj_45 +
+                   spcaproj_46 + spcaproj_47 + spcaproj_50
+                   ,
                   data = human@meta.data, family = binomial)
 ```
 
@@ -196,15 +207,17 @@ saveRDS(ad.model2, file = paste0(home_dir, "/AD_human_objects_ortholog/spca_glm2
 #human <- readRDS(file = paste0(home_dir, "/AD_human_objects_ortholog/human_mouse_proj_spca.RData"))
 ```
 
-
+3, 6, 7, 9, 10, 11, 12, 14, 15, 20, 23, 25, 42, 46
 ```{r}
 # Run GLM
-ad.model3 <- glm(dv ~ spcaproj_2 + spcaproj_3 + spcaproj_4 +
-                  spcaproj_6 + spcaproj_9 + spcaproj_10 +
-                  spcaproj_11 + spcaproj_13 +
-                  spcaproj_19 + 
-                  spcaproj_22 + spcaproj_24 +
-                  spcaproj_43, data = human@meta.data, family = binomial)
+ad.model3 <- glm(dv ~ spcaproj_3 +
+                   spcaproj_6 + spcaproj_7 + spcaproj_9 + spcaproj_10 +
+                   spcaproj_11 + spcaproj_12 + spcaproj_14 + spcaproj_15 + 
+                   spcaproj_20 + 
+                   spcaproj_23 + spcaproj_25 +
+                   spcaproj_42 +
+                   spcaproj_46
+                 , data = human@meta.data, family = binomial)
 ```
 
 ```{r}
@@ -230,11 +243,14 @@ summary(ad.model3)
 ```
 
 ## Visualizing Highly Different PCs
-
-
+```{r}
+p1 <- DimPlot(human, reduction = "spca_projections", dims = c(6, 2), group.by = "Genotype")
+```
 
 ```{r}
-DimPlot(human, reduction = "spca_projections", dims = c(1, 6), group.by = "Genotype")
+cairo_ps(filename= paste0(home_dir, "/Figures/Figure 3/3D_spca.eps"), width = 7, height = 7) # name the file as an EPS
+p1 #variable of the figure that is defined/saved, can be used any name
+dev.off()
 ```
 
 ```{r}
@@ -248,11 +264,21 @@ anova_df
 
 
 ```{r}
-ggplot(anova_df, aes(x = reorder(row.names(anova_df), Deviance), y = Deviance)) + 
+p2 <- ggplot(anova_df, aes(x = reorder(row.names(anova_df), Deviance), y = Deviance)) + 
   geom_bar(stat = "identity") + coord_flip() +
   scale_y_log10() + 
-  labs(x = "Principle Component",
+  labs(x = "Principal Component",
        title = "Significant sPCA Loadings") + 
   theme(axis.text.y = element_text(size = 8))
+```
+
+```{r}
+cairo_ps(filename= paste0(home_dir, "/Figures/Figure 3/3C_spca.eps"), width = 9, height = 7) # name the file as an EPS
+p2 #variable of the figure that is defined/saved, can be used any name
+dev.off()
+```
+
+```{r}
+sessionInfo()
 ```
 

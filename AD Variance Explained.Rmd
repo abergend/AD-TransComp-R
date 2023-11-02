@@ -1,0 +1,200 @@
+---
+title: "PC Variance Explained"
+author: "Alexander Bergendorf"
+date: "2023-10-30"
+output: html_document
+---
+
+# Library Import
+```{r}
+library(Seurat)
+library(mixOmics)
+library(h2o)
+library(tidyverse)
+library(orthogene)
+library(dittoSeq)
+library(openxlsx)
+home_dir <- "C:/Users/aberg/OneDrive/Desktop/Brubaker Summer Research 2023"
+```
+
+# sPCA
+## Data Import
+```{r}
+mouse_spca <- readRDS(file = paste0(home_dir, "/AD_mouse_objects_ortholog/mouse_spca_loadings.RData"))
+human <- readRDS(file = paste0(home_dir, "/AD_human_objects_ortholog/human_mouse_proj_spca.RData"))
+```
+
+
+
+```{r}
+mouse_loading_f <- mouse_spca@reductions$spca@feature.loadings
+t_filt_human_ex <- t(human@assays$RNA@scale.data)
+```
+
+
+```{r}
+var_mh <- lapply(1:ncol(mouse_loading_f), function(x) (t(mouse_loading_f[,x])%*%t(t_filt_human_ex)%*%t_filt_human_ex%*%mouse_loading_f[,x])/(sum(diag(t(mouse_loading_f)%*%t(t_filt_human_ex)%*%t_filt_human_ex%*%mouse_loading_f))))
+```
+
+
+
+
+```{r}
+variance_vec <- data.frame(variance = unlist(var_mh))
+names_vec <- colnames(mouse_spca@reductions$spca@feature.loadings)
+variance_vec$principal_component <- names_vec
+write.csv(variance_vec, file = paste0(home_dir, "/spca_variances.csv"), row.names = FALSE)
+variance_vec <- read.csv(file = paste0(home_dir, "/spca_variances.csv"))
+variance_vec <- variance_vec %>%
+  arrange(desc(variance))
+variance_vec <- variance_vec %>%
+  mutate(principal_component = fct_reorder(as.factor(principal_component), desc(variance)))
+```
+
+```{r}
+# Cumulative Variance Plot for 80% Variance
+cumVar <- cumsum(variance_vec$variance) * 100
+cairo_ps(filename= paste0(home_dir, "/Figures/Supplemental Figure 2/S2A.eps"), width = 9, height = 7)
+plot(cumVar[0:50], xlab = "Principle Component", ylab = "Amount of Explained Variance", main = "Cumulative Variance Plot", ylim = c(0, 100), xlim = c(1, 50))
+#legend(“topleft”, legend=c(“Cut-off @ PC16"),
+       #col=c(“blue”), lty=5, cex=0.6)
+dev.off()
+```
+
+
+
+
+
+
+```{r}
+p1 <- ggplot(variance_vec, aes(x = principal_component, y = variance)) + 
+  geom_bar(stat = "identity") +
+   theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
+    labs(x = "Principle Component",
+       y = "Variance Explained",
+       title = "Percent Variance Explained sPCA")
+```
+
+```{r}
+cairo_ps(filename= paste0(home_dir, "/Figures/Figure 3/3_variance_explained_spca.eps"), width = 7, height = 7) # name the file as an EPS
+p1 #variable of the figure that is defined/saved, can be used any name
+dev.off()
+```
+
+
+# PCA
+## Data Import
+```{r}
+mouse_pca <- readRDS(file = paste0(home_dir, "/AD_mouse_objects_ortholog/mouse_pca_loadings.RData"))
+human <- readRDS(file = paste0(home_dir, "/AD_human_objects_ortholog/human_mouse_proj_pca.RData"))
+```
+
+```{r}
+mouse_loading_f <- data.frame(mouse_pca@reductions$pca@feature.loadings)
+t_filt_human_ex <- data.frame(human@assays$RNA@scale.data)
+```
+
+```{r}
+ortholog_mat <- convert_orthologs(gene_df = row.names(t_filt_human_ex),
+                                    input_species = "human",
+                                    output_species = "mouse",
+                                    non121_strategy = "drop_both_species")
+
+ortholog_mat <- ortholog_mat %>%
+  filter(row.names(ortholog_mat) %in% row.names(mouse_loading_f))
+t_filt_human_ex <- t_filt_human_ex %>%
+  filter(row.names(t_filt_human_ex) %in% ortholog_mat$input_gene)
+row.names(t_filt_human_ex) <- row.names(ortholog_mat)
+
+mouse_loading_f  <- mouse_loading_f %>% arrange(row.names(mouse_loading_f))
+t_filt_human_ex <- t_filt_human_ex %>%
+  arrange(row.names(t_filt_human_ex))
+```
+
+```{r}
+mouse_loading_f <- as.matrix(mouse_loading_f)
+t_filt_human_ex <- t(as.matrix(t_filt_human_ex))
+```
+
+```{r}
+var_mh <- lapply(1:ncol(mouse_loading_f), function(x) (t(mouse_loading_f[,x])%*%t(t_filt_human_ex)%*%t_filt_human_ex%*%mouse_loading_f[,x])/(sum(diag(t(mouse_loading_f)%*%t(t_filt_human_ex)%*%t_filt_human_ex%*%mouse_loading_f))))
+```
+
+```{r}
+variance_vec <- data.frame(variance = unlist(var_mh))
+names_vec <- colnames(mouse_pca@reductions$pca@feature.loadings)
+variance_vec$principal_component <- names_vec
+write.csv(variance_vec, file = paste0(home_dir, "/pca_variances.csv"))
+variance_vec <- variance_vec %>%
+  arrange(desc(variance))
+variance_vec <- variance_vec %>%
+  mutate(principal_component = fct_reorder(as.factor(principal_component), desc(variance)))
+```
+
+```{r}
+variance_vec <- read.csv(file = paste0(home_dir, "/pca_variances.csv"))
+# Cumulative Variance Plot for 80% Variance
+cumVar <- cumsum(variance_vec$variance) * 100
+cairo_ps(filename= paste0(home_dir, "/Figures/Supplemental Figure 2/S2B.eps"), width = 9, height = 7)
+plot(cumVar[0:50], xlab = "Principle Component", ylab = "Amount of Explained Variance", main = "Cumulative Variance Plot", ylim = c(0, 100), xlim = c(1, 50))
+#legend(“topleft”, legend=c(“Cut-off @ PC16"),
+       #col=c(“blue”), lty=5, cex=0.6)
+dev.off()
+help(plot)
+```
+
+
+```{r}
+p2 <- ggplot(variance_vec, aes(x = principal_component, y = variance)) + 
+  geom_bar(stat = "identity") +
+   theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
+    labs(x = "Principle Component",
+       y = "Variance Explained",
+       title = "Percent Variance Explained PCA")
+```
+
+```{r}
+cairo_ps(filename= paste0(home_dir, "/Figures/Figure 3/3_variance_explained_pca.eps"), width = 7, height = 7) # name the file as an EPS
+p2 #variable of the figure that is defined/saved, can be used any name
+dev.off()
+```
+
+# AIC Scores
+```{r}
+pca_aic <- c(1424.8, 1399.7, 1461.7)
+spca_aic <- c(1381.8, 1349.8, 1388)
+names <- rep(c("All PCs", "Significant PCs (p < 0.1)", "Highly Significant PCs (p < 0.001)"), 2)
+type <- c(rep("PCA", 3), rep("sPCA", 3))
+pca_dataframe <- data.frame(name = names, aic = c(pca_aic, spca_aic), type = type)
+write.csv(pca_dataframe, file = paste0(home_dir, "/AIC.csv"))
+```
+
+```{r}
+cbp2 <- c("#000000", "#E69F00", "#56B4E9", "#009E73",
+          "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+
+p3 <- ggplot(pca_dataframe, aes(x = name, y = aic, fill = type)) + 
+  geom_bar(stat = "identity", position = "dodge") +
+   theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
+    labs(title = "AIC Scores for GLMs",
+       y = "Akaike Information Criterion",
+       x = "Generalized Linear Model",
+       fill = "PCA Type")  +
+  scale_fill_manual(values = cbp2)
+```
+
+
+
+
+# End
+```{r}
+cairo_ps(filename= paste0(home_dir, "/Figures/Figure 3/3B.eps"), width = 7, height = 6) # name the file as an EPS
+p3 #variable of the figure that is defined/saved, can be used any name
+dev.off()
+```
+
+
+```{r}
+sessionInfo()
+```
+

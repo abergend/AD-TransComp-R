@@ -93,6 +93,10 @@ combined <- c(ad, wild_type)
 rm(ad, wild_type)
 ```
 
+```{r}
+table(combined_test@meta.data$SampleID)
+```
+
 
 
 ```{r}
@@ -111,23 +115,47 @@ for(i in samples){
 }
 ```
 
+```{r}
+for(i in samples){ 
+  combined[[i]][["rna.size"]] <-   log10(Matrix::colSums(combined[[i]]@assays$RNA@counts)) 
+} 
+```
+
+
 
 
 ## QC and Visualization
 ```{r}
-#Mitochondrial Percentage
-dittoPlot(combined$AD_1, var = "percent.mt", group.by = "SampleID")
-dittoPlot(combined$AD_2, var = "percent.mt", group.by = "SampleID")
-dittoPlot(combined$WT_1, var = "percent.mt", group.by = "SampleID")
-dittoPlot(combined$WT_2, var = "percent.mt", group.by = "SampleID")
+combined_test <- merge(x = combined[[1]], y = combined[2:length(combined)], merge.data=TRUE)
+p1 <- VlnPlot(combined_test,"rna.size", group.by = "SampleID")
+p1
+p2 <- VlnPlot(combined_test,"percent.mt", group.by = "SampleID")
+p2
 ```
 
 ```{r}
-#RNA and UMI
-dittoPlot(combined$AD_1, var = "nCount_RNA", group.by = "CellType")
-dittoPlot(combined$AD_2, var = "nCount_RNA", group.by = "CellType")
-dittoPlot(combined$WT_1, var = "nCount_RNA", group.by = "CellType")
-dittoPlot(combined$WT_2, var = "nCount_RNA", group.by = "CellType")
+rna_size_min <- list() 
+rna_size_max <- list() 
+
+for(i in samples){ 
+  rna_size_min[[i]] <- median(combined[[i]]@meta.data$rna.size) - (3*mad(combined[[i]]@meta.data$rna.size)) 
+  
+  rna_size_max[[i]] <- median(combined[[i]]@meta.data$rna.size) + (3*mad(combined[[i]]@meta.data$rna.size)) 
+} 
+```
+
+
+
+```{r}
+cairo_ps(filename= paste0(home_dir, "/Figures/Supplemental Figure 1/S12.eps"), width = 7, height = 7) # name the file as an EPS
+p2 #variable of the figure that is defined/saved, can be used any name
+dev.off()
+```
+
+
+```{r}
+dittoPlot(combined_test, var = "nCount_RNA", group.by = "SampleID")
+
 ```
 
 ## Check Cell Cycle after clustering
@@ -149,13 +177,15 @@ combined <- lapply(X = combined, FUN = SCTransform,  method ="glmGamPoi", return
 
 
 ```{r}
-saveRDS(combined, file = paste0(home_dir, "/AD_mouse_objects_ortholog/combined_ortholog.RData"))
-#combined <- readRDS(file = paste0(home_dir, "/AD_mouse_objects_ortholog/combined_ortholog.RData"))
+#saveRDS(combined, file = paste0(home_dir, "/AD_mouse_objects_ortholog/combined_ortholog.RData"))
+combined <- readRDS(file = paste0(home_dir, "/AD_mouse_objects_ortholog/combined_ortholog.RData"))
 ```
 
 
+
+
 ```{r}
-variable.features <- SelectIntegrationFeatures(object.list = combined, nfeatures = 3000) 
+variable.features <- SelectIntegrationFeatures(object.list = combined, nfeatures = 3000)
 ```
 
 ## Batch
@@ -171,13 +201,23 @@ combined <- RunPCA(combined, verbose = FALSE)
 ```
 
 ```{r}
+stdev <- combined@reductions$pca@stdev
+variances <- (stdev)^2 / sum(stdev^2)
+variances
+```
+
+
+
+```{r}
 #Checking differences in principal components 
 
 options(repr.plot.height = 12, repr.plot.width = 20) 
 p1 <- DimPlot(object = combined, reduction = "pca", pt.size = .1, group.by = "SampleID") 
-p2 <- VlnPlot(object = combined, features = "PC_1", group.by = "SampleID", pt.size = 0) 
-plot_grid(p1,p2) 
-ggsave(paste0(home_dir, "/Mouse_Viz/pca_prebatch_ortholog.pdf"))
+#p2 <- VlnPlot(object = combined, features = "PC_1", group.by = "SampleID", pt.size = 0) 
+#plot_grid(p1,p2)
+cairo_ps(filename= paste0(home_dir, "/Figures/Supplemental Figure 1/1E_pre.eps"), width = 9, height = 7) # name the file as an EPS
+p1 #variable of the figure that is defined/saved, can be used any name
+dev.off()
 ```
 
 We should batch correct.
@@ -191,12 +231,18 @@ ggsave(paste0(home_dir, "/Mouse_Viz/convergence_plot_ortholog.pdf"))
 ```
 
 ```{r}
-p1 <- DimPlot(object = combined, reduction = "harmony", pt.size = .1, group.by = "orig.ident") 
+p1 <- DimPlot(object = combined, reduction = "harmony", pt.size = .1, group.by = "SampleID") 
 
-p2 <- VlnPlot(object = combined, features = "harmony_1", group.by = "orig.ident", pt.size = 0) 
+#p2 <- VlnPlot(object = combined, features = "harmony_1", group.by = "SampleID", pt.size = 0) 
+cairo_ps(filename= paste0(home_dir, "/Figures/Supplemental Figure 1/1E_post.eps"), width = 9, height = 7) # name the file as an EPS
+p1 #variable of the figure that is defined/saved, can be used any name
+dev.off()
+```
 
-plot_grid(p1,p2) 
-ggsave(paste0(home_dir, "/Mouse_Viz/pca_postbatch_ortholog.pdf"))
+```{r}
+stdev <- combined@reductions$harmony@stdev
+variances <- (stdev)^2 / sum(stdev^2)
+variances
 ```
 
 
@@ -351,14 +397,18 @@ table(combined@meta.data$summary, combined@meta.data$SampleID)
 
 
 ```{r}
-#saveRDS(combined, file = paste0(home_dir, "/AD_mouse_objects_ortholog/mouse_adwt_labeled.RData"))
-combined <- readRDS(file = paste0(home_dir, "/AD_mouse_objects_ortholog/mouse_adwt_labeled.RData"))
+saveRDS(combined, file = paste0(home_dir, "/AD_mouse_objects_ortholog/mouse_adwt_labeled.RData"))
+#combined <- readRDS(file = paste0(home_dir, "/AD_mouse_objects_ortholog/mouse_adwt_labeled.RData"))
 ```
 
 # Visualization
 ## 1D
 ```{r}
-p1 <- dittoDimPlot(combined, "summary")
+Idents(combined) <- combined@meta.data$summary
+levels(combined) <- c("Astrocyte", "Endothelial", "Microglia", 
+                      "Neuron", "Oligodendrocyte", "Oligodendrocyte Precursor")
+
+p1 <- dittoDimPlot(combined, Idents(combined))
 
 cairo_ps(filename= paste0(home_dir, "/Figures/Figure 1/1D.eps"), width = 9, height = 7) # name the file as an EPS
 p1 #variable of the figure that is defined/saved, can be used any name
@@ -375,6 +425,7 @@ Oligodendrocyte Precursor: Matn4, Olig2, Pdgfr1 (Cluster 13, 34)
 Astrocytes: Hes5, Aldh1l1 (Cluster 2, 22, 24)
 Oligodendrocyte: Mbp, Mobp, Mog(Cluster 13, 34)
 Neuron: Reln, Satb2, Fezf2, Crym, Bcl11b, Sst, Lnx6, Adarb2, Gad2 (Rest)
+
 ```{r}
 markers <- c("Reln", "Satb2",
              "Mbp", "Mobp", "Mog", 
@@ -393,6 +444,8 @@ dev.off()
 ```
 
 ```{r}
+Idents(combined) <- combined@meta.data$summary
+levels(combined) <- c("Neuron", "Oligodendrocyte", "Oligodendrocyte Precursor", "Astrocyte", "Endothelial", "Microglia")
 markers <- rev(markers)
 p2 <- DotPlot(combined, features = markers, assay = "RNA") + 
   theme(axis.text.x = element_text(angle = 45, hjust=1))
@@ -425,4 +478,7 @@ for(i in markers){
 }
 ```
 
+```{r}
+sessionInfo()
+```
 

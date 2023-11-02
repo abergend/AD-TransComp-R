@@ -93,17 +93,18 @@ combined <- FindSubCluster(
   cluster = 2,
   graph.name = "RNA_snn",
   subcluster.name = "sub.cluster",
-  resolution = 0.8,
+  resolution = 2,
   algorithm = 1
 )
 ```
 
 ```{r}
-dittoDimPlot(combined, "sub.cluster", do.label = TRUE, legend.show = FALSE, labels.size = 3) 
+#dittoDimPlot(combined, "sub.cluster", do.label = TRUE, legend.show = FALSE, labels.size = 3) 
 ```
 
 ```{r}
-combined <- subset(combined, subset = sub.cluster %in% c("2_3", "3", "4", "6"), invert = TRUE)
+combined <- subset(combined, subset = sub.cluster %in% c("2_1","3", "4", "6"), invert = TRUE)
+
 ```
 
 ```{r}
@@ -111,9 +112,11 @@ dittoDimPlot(combined, "sub.cluster", do.label = TRUE, legend.show = FALSE, labe
 ```
 
 
+
+
 ```{r}
 good_microglia <- Cells(combined)
-saveRDS(good_microglia, file = paste0(home_dir, "/AD_mouse_objects_ortholog/good_microglia_barcodes.RData"))
+#saveRDS(good_microglia, file = paste0(home_dir, "/AD_mouse_objects_ortholog/good_microglia_barcodes.RData"))
 ```
 
 
@@ -126,6 +129,26 @@ all.genes <- rownames(combined)
 combined <- ScaleData(combined, features = all.genes)
 combined <- RunPCA(combined, features = VariableFeatures(object = combined))
 ```
+## Figure 2B
+```{r}
+combined <- FindNeighbors(combined, dims = 1:5)
+combined <- FindClusters(combined, resolution = 0.5)
+combined <- RunUMAP(combined, dims = 1:5)
+```
+
+
+```{r}
+p1 <- dittoDimPlot(combined, "Genotype", color.panel = c("#F8766D", "#00BFC4"))
+cairo_ps(filename= paste0(home_dir, "/Figures/Figure 2/2B.eps"), width = 9, height = 7) # name the file as an EPS
+p1 #variable of the figure that is defined/saved, can be used any name
+dev.off()
+```
+
+```{r}
+count_table <- table(combined@meta.data$Genotype)
+write.csv(count_table, file = paste0(home_dir, "/Figures/Figure 2/mouse_counts.csv"))
+```
+
 
 ```{r}
 ElbowPlot(combined, ndims = 50)
@@ -217,20 +240,45 @@ dittoDimPlot(human, "seurat_clusters", do.label = TRUE, legend.show = FALSE, lab
 
 ```{r}
 good_microglia <- Cells(human)
-saveRDS(good_microglia, file = paste0(home_dir, "/AD_human_objects_ortholog/good_microglia_barcodes.RData"))
+#saveRDS(good_microglia, file = paste0(home_dir, "/AD_human_objects_ortholog/good_microglia_barcodes.RData"))
 ```
 
 
 
-## Rerun PCA human
+## Get Human GEX matrix
 ```{r}
 DefaultAssay(human) <- "RNA"
 human <- NormalizeData(human)
 all.genes <- rownames(human)
 human <- ScaleData(human, features = all.genes)
 human_gex_matrix <- as.data.frame(human@assays$RNA@scale.data)
+human <- RunPCA(human, features = VariableFeatures(object = human))
 ```
 
+## Figure 2D
+```{r}
+ElbowPlot(human)
+```
+
+
+```{r}
+human <- FindNeighbors(human, dims = 1:5)
+human <- FindClusters(human, resolution = 0.5)
+human <- RunUMAP(human, dims = 1:5)
+```
+
+```{r}
+p2 <- dittoDimPlot(human, "Genotype", color.panel = c("#F8766D", "#00BFC4"))
+cairo_ps(filename= paste0(home_dir, "/Figures/Figure 2/2D.eps"), width = 9, height = 7) # name the file as an EPS
+p2 #variable of the figure that is defined/saved, can be used any name
+dev.off()
+```
+
+```{r}
+count_table <- table(human@meta.data$Genotype)
+write.csv(count_table, file = paste0(home_dir, "/Figures/Figure 2/human_counts.csv"))
+count_table
+```
 
 
 ```{r}
@@ -288,7 +336,8 @@ human <- AddMetaData(human, human@reductions$pca_projections@cell.embeddings, co
 ```
 
 ```{r}
-saveRDS(human, file = paste0(home_dir, "/AD_human_objects_ortholog/human_mouse_proj_pca.RData"))
+#saveRDS(human, file = paste0(home_dir, "/AD_human_objects_ortholog/human_mouse_proj_pca.RData"))
+human <- readRDS(file = paste0(home_dir, "/AD_human_objects_ortholog/human_mouse_proj_pca.RData"))
 ```
 
 ```{r}
@@ -309,8 +358,6 @@ ad.model <- glm(dv ~ pcaproj_1 + pcaproj_2 + pcaproj_3 + pcaproj_4 + pcaproj_5 +
 summary(ad.model)
 ```
 
-
-
 ```{r}
 saveRDS(ad.model, file = paste0(home_dir, "/AD_human_objects_ortholog/pca_glm.RData"))
 ```
@@ -322,15 +369,16 @@ human <- readRDS(file = paste0(home_dir, "/AD_human_objects_ortholog/human_mouse
 
 ```{r}
 # Run GLM
-ad.model2 <- glm(dv ~ pcaproj_1 + pcaproj_2 + pcaproj_3 + 
-                  pcaproj_6 + pcaproj_7 + pcaproj_8 + pcaproj_9 + pcaproj_10 +
-                  pcaproj_10 + pcaproj_11 + pcaproj_12 + pcaproj_13 + pcaproj_15 +
-                  pcaproj_17 + pcaproj_19 + pcaproj_20 +
-                  pcaproj_22 + pcaproj_23 +
-                  pcaproj_29 + pcaproj_30 +
-                  pcaproj_32 + pcaproj_33 + pcaproj_34  +
-                  pcaproj_36 + pcaproj_37 + 
-                  pcaproj_48 + pcaproj_49 , data = human@meta.data, family = binomial)
+ad.model2 <- glm(dv ~ pcaproj_1 + pcaproj_2 + pcaproj_3 +
+                   pcaproj_6 + pcaproj_9 + pcaproj_10 +
+                   pcaproj_11 + pcaproj_12 + 
+                   pcaproj_15 + pcaproj_16 +
+                   pcaproj_19 +
+                   pcaproj_23 + pcaproj_25 + pcaproj_28 + pcaproj_29 +
+                   pcaproj_26 + pcaproj_31 + pcaproj_33 +
+                   pcaproj_38 + pcaproj_39 +
+                   pcaproj_41 +
+                   pcaproj_46 + pcaproj_47 + pcaproj_48 + pcaproj_50, data = human@meta.data, family = binomial)
 
 ```
 
@@ -350,12 +398,12 @@ human <- readRDS(file = paste0(home_dir, "/AD_human_objects_ortholog/human_mouse
 
 ```{r}
 # Run GLM
-ad.model3 <- glm(dv ~ pcaproj_1 + pcaproj_3 + 
-                  pcaproj_6 + pcaproj_7 + pcaproj_8 + pcaproj_9 + pcaproj_10 +
-                  pcaproj_11 + pcaproj_13 +
-                  pcaproj_15 + pcaproj_17 +
-                  pcaproj_33 + 
-                  pcaproj_48 + pcaproj_49
+ad.model3 <- glm(dv ~ pcaproj_1 + pcaproj_3 +
+                   pcaproj_6 + pcaproj_9 + pcaproj_10 +
+                   pcaproj_11 + pcaproj_12 + pcaproj_15 +
+                   pcaproj_16 +
+                   pcaproj_33 + pcaproj_38 + 
+                   pcaproj_46 + pcaproj_47
                   , data = human@meta.data, family = binomial)
 
 ```
@@ -384,8 +432,15 @@ summary(ad.model3)
 
 ## Visualize PCs
 ```{r}
-DimPlot(human, reduction = "pca_projections", dims = c(1, 3), group.by = "Genotype")
+p1 <- DimPlot(human, reduction = "pca_projections", dims = c(1, 9), group.by = "Genotype")
 ```
+
+```{r}
+cairo_ps(filename= paste0(home_dir, "/Figures/Figure 3/3D_pca.eps"), width = 7, height = 7) # name the file as an EPS
+p1 #variable of the figure that is defined/saved, can be used any name
+dev.off()
+```
+
 
 ```{r}
 anova(ad.model2)
@@ -396,20 +451,26 @@ anova_df <- anova(ad.model2)
 anova_df <- anova_df %>%
   arrange(desc(Deviance))
 anova_df <- anova_df %>%
-  filter(!row.names(anova_df) %in% c("pcaproj_31", "NULL"))
+  filter(!row.names(anova_df) %in% c("NULL"))
 anova_df
 ```
 
 ```{r}
-ggplot(anova_df, aes(x = reorder(row.names(anova_df), Deviance), y = Deviance)) + 
+p2 <- ggplot(anova_df, aes(x = reorder(row.names(anova_df), Deviance), y = Deviance)) + 
   geom_bar(stat = "identity") + coord_flip() +
   scale_y_log10() + 
-  labs(x = "Principle Component",
+  labs(x = "Principal Component",
        title = "Significant PCA Loadings") +
    theme(axis.text.y = element_text(size = 10))
 ```
 
 ```{r}
-dittoDimPlot(human, "Genotype")
+cairo_ps(filename= paste0(home_dir, "/Figures/Figure 3/3C_pca.eps"), width = 9, height = 7) # name the file as an EPS
+p2 #variable of the figure that is defined/saved, can be used any name
+dev.off()
+```
+
+```{r}
+dittoDimPlot()
 ```
 

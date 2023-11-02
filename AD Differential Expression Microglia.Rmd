@@ -13,6 +13,9 @@ library(tidyverse)
 library(orthogene)
 library(dittoSeq)
 library(openxlsx)
+library(RColorBrewer)
+library(pheatmap)
+library(scales)
 home_dir <- "C:/Users/aberg/OneDrive/Desktop/Brubaker Summer Research 2023"
 ```
 
@@ -80,18 +83,68 @@ dittoHeatmap(combined, genes = microglia_ad$genes[1:40],
 ```
 
 ```{r}
+help(dittoHeatmap)
+```
+
+
+```{r}
 microglia_wt
 dittoHeatmap(combined, genes = microglia_wt$genes[1:30],
              annot.by = c("SampleID", "Genotype"), assay = "RNA", cluster_rows = FALSE)
 ```
 
+```{r}
+combined <- ScaleData(combined, assay = "RNA")
+
+
+DoHeatmap(combined,
+          features = combined_genes,
+          group.by = "Genotype",
+          assay = "RNA",
+          label = FALSE, 
+          disp.min = -2,
+          disp.max = 2)
+
+ggsave(filename = paste0(home_dir, "/Figures/Figure 2/2E.png"), width = 7, height = 7)
+```
+
+
+
+
+
+
+```{r}
+breaksList <- seq(-1.75, 2, length.out = 12)
+combined_genes <- c(microglia_ad$genes[1:15], rev(microglia_wt$genes[1:15]))
+DefaultAssay(combined) <- "RNA"
+mouse_heatmap <- dittoHeatmap(combined, genes = combined_genes,
+             annot.by = c("Genotype"), cluster_rows = FALSE, assay = "RNA",
+             heatmap.colors = colorRampPalette(c("blue", "white", "red"))(12), 
+breaks = breaksList)
+
+```
+
+```{r}
+DoHeatmap(combined,
+          features = combined_genes,
+          group.by = "Genotype",
+          assay = "RNA",
+          label = FALSE)
+```
+
+
+```{r}
+cairo_ps(filename= paste0(home_dir, "/Figures/Figure 2/2E.eps"), width = 9, height = 7) # name the file as an EPS
+mouse_heatmap #variable of the figure that is defined/saved, can be used any name
+dev.off()
+```
 
 
 # Human DE
 ## AD
 ```{r}
 combined <- readRDS(file = paste0(home_dir, "/AD_human_objects_ortholog/human_adwt_labeled_ortholog.RData"))
-combined <- subset(combined, subset = summary == "Microlia")
+combined <- subset(combined, subset = summary == "Microglia")
 good_microglia <- readRDS(file = paste0(home_dir, "/AD_human_objects_ortholog/good_microglia_barcodes.RData"))
 combined <- subset(combined, cells = good_microglia)
 
@@ -149,11 +202,37 @@ dittoHeatmap(combined, genes = microglia_human_ad$genes[1:30],
              annot.by = c("Genotype", "orig.ident"), cluster_rows = FALSE, assay = "RNA")
 ```
 
+
 ```{r}
 microglia_human_c
 dittoHeatmap(combined, genes = microglia_human_c$genes[1:30],
              annot.by = c("Genotype", "orig.ident"), cluster_rows = FALSE, assay = "RNA")
 ```
+```{r}
+combined <- ScaleData(combined, assay = "RNA")
+
+DoHeatmap(combined,
+          features = combined_genes,
+          group.by = "Genotype",
+          assay = "RNA",
+          label = FALSE, 
+          disp.min = -2,
+          disp.max = 2)
+
+ggsave(filename = paste0(home_dir, "/Figures/Figure 2/2C.png"), width = 7, height = 7)
+```
+
+
+
+
+
+```{r}
+combined_genes <- c(microglia_human_ad$genes[1:15], rev(microglia_human_c$genes[1:15]))
+human_heatmap <- dittoHeatmap(combined, genes = combined_genes,
+             annot.by = c("Genotype"), cluster_rows = FALSE, assay = "RNA")
+```
+
+
 
 # Comparing Mouse DE and Human DE
 ```{r}
@@ -212,6 +291,8 @@ ortholog_mat <- convert_orthologs(gene_df = microglia_mouse_ad$genes,
 #human_gex_matrix <- human_gex_matrix %>%
   #arrange(row.names(human_gex_matrix))
 ```
+
+
 ```{r}
 # Filter based on genes that are present in human
 ad_similarities <- ortholog_mat %>%

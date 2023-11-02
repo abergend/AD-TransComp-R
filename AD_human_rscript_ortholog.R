@@ -20,12 +20,12 @@ home_dir <- "/home/axb1657/Brubaker_Summer_Research_2023"
 # Data Import
 
 samples <- c("A1", "A2", "A3", "A4")
-names <- c("AD1", "C1", "AD2", "C2")
+names <- c("AD_1", "C_1", "AD_2", "C_2")
 data_list <- list()
 
 for(i in samples){ 
   data <- Read10X(paste0(home_dir, "/AD_human_raw/", i)) 
-  data_list[[i]] <- data 
+  data_list[[i]] <- data
 } 
 
 
@@ -33,7 +33,7 @@ human_orthologs <- readRDS(file = paste0(home_dir, "/AD_human_objects_ortholog/h
 
 
 for(i in samples){ 
-  data_list[[i]] <- CreateSeuratObject(counts = data_list[[i]], project = i) 
+  data_list[[i]] <- CreateSeuratObject(counts = data_list[[i]], project = i)
 } 
 
 for(i in samples){
@@ -46,6 +46,10 @@ names(data_list) <- names
 # Quality Control
 
 for(i in names){ 
+  data_list[[i]]@meta.data$Sample <- i
+}
+
+for(i in names){ 
   data_list[[i]][["percent.mt"]] <- PercentageFeatureSet(data_list[[i]], pattern = "^MT-") 
 } 
 
@@ -55,6 +59,23 @@ for(i in names){
 
 
 #QC Visualization 
+
+combined_test <- merge(x = data_list[[1]], y = data_list[2:length(data_list)], merge.data=TRUE)
+p1 <- VlnPlot(combined_test, "rna.size", group.by = "Sample")
+#print(p1)
+
+p2 <- VlnPlot(combined_test, "percent.mt", group.by = "Sample")
+#print(p2)
+
+cairo_ps(filename= paste0(home_dir, "/Human_Viz_ortholog/S1C.eps"), width = 7, height = 7) # name the file as an EPS
+p1 #variable of the figure that is defined/saved, can be used any name
+dev.off()
+
+cairo_ps(filename= paste0(home_dir, "/Human_Viz_ortholog/S1D.eps"), width = 7, height = 7) # name the file as an EPS
+p2 #variable of the figure that is defined/saved, can be used any name
+dev.off()
+
+rm(combined_test)
 
 for(i in names){ 
   qc_plot <- VlnPlot(data_list[[i]], features = c("rna.size", "percent.mt"), ncol = 3) 
@@ -126,10 +147,10 @@ for(i in names){
   data_list[[i]] <- CellCycleScoring(data_list[[i]], s.features = s.genes, g2m.features = g2m.genes) 
 } 
 
-data_list$AD1@meta.data$Genotype <- "AD"
-data_list$AD2@meta.data$Genotype <- "AD"
-data_list$C1@meta.data$Genotype <- "C"
-data_list$C2@meta.data$Genotype <- "C"
+data_list$AD_1@meta.data$Genotype <- "AD"
+data_list$AD_2@meta.data$Genotype <- "AD"
+data_list$C_1@meta.data$Genotype <- "C"
+data_list$C_2@meta.data$Genotype <- "C"
 
 
 # SCTransform
@@ -141,9 +162,7 @@ data_list <- lapply(X = data_list, FUN = SCTransform, method = "glmGamPoi", retu
 
 
 
-
-
-saveRDS(data_list, file = paste0(home_dir, "/AD_human_objects/combined.RData"))
+#saveRDS(data_list, file = paste0(home_dir, "/AD_human_objects/combined.RData"))
 #data_list <- readRDS(file = paste0(home_dir, "/AD_human_objects/combined.RData"))
 
 
@@ -162,39 +181,52 @@ VariableFeatures(data_list) <- variable.features
 
 data_list <- RunPCA(data_list, verbose = FALSE) 
 
+stdev <- data_list@reductions$pca@stdev
+variances <- (stdev)^2 / sum(stdev^2)
+write.csv(variances, file = paste0(home_dir, "/pca_variances.csv"))
+
 
 
 #Checking differences in principal components 
 
-options(repr.plot.height = 12, repr.plot.width = 20) 
-p1 <- DimPlot(object = data_list, reduction = "pca", pt.size = .1, group.by = "orig.ident") 
-p2 <- VlnPlot(object = data_list, features = "PC_1", group.by = "orig.ident", pt.size = 0) 
-plot_grid(p1,p2) 
-ggsave(paste0(home_dir, "/Human_Viz_ortholog/pca_prebatch.pdf"))
+#options(repr.plot.height = 12, repr.plot.width = 20) 
+p1 <- DimPlot(object = data_list, reduction = "pca", pt.size = .1, group.by = "Sample") 
+#p2 <- VlnPlot(object = data_list, features = "PC_1", group.by = "orig.ident", pt.size = 0) 
+#plot_grid(p1,p2) 
+cairo_ps(filename= paste0(home_dir, "/Human_Viz_ortholog/1F_pre.eps"), width = 9, height = 7) # name the file as an EPS
+p1 #variable of the figure that is defined/saved, can be used any name
+dev.off()
+#ggsave(paste0(home_dir, "/Human_Viz_ortholog/pca_prebatch.pdf"))
 
 #Batch correction necessary in this instance
 
 #Running Harmony  
-options(repr.plot.height = 8, repr.plot.width = 16) 
+#options(repr.plot.height = 8, repr.plot.width = 16) 
 
-data_list <- RunHarmony(data_list, assay.use = "SCT", group.by.vars = "orig.ident", plot_convergence = TRUE) 
-ggsave(paste0(home_dir, "/Human_Viz_ortholog/convergence_plot.pdf"))
+data_list <- RunHarmony(data_list, assay.use = "SCT", group.by.vars = "Sample", plot_convergence = TRUE) 
+#ggsave(paste0(home_dir, "/Human_Viz_ortholog/convergence_plot.pdf"))
 
 
 #Visualizing batch corrected data 
 
-p1 <- DimPlot(object = data_list, reduction = "harmony", pt.size = .1, group.by = "orig.ident") 
+p1 <- DimPlot(object = data_list, reduction = "harmony", pt.size = .1, group.by = "Sample") 
 
-p2 <- VlnPlot(object = data_list, features = "harmony_1", group.by = "orig.ident", pt.size = 0) 
+#p2 <- VlnPlot(object = data_list, features = "harmony_1", group.by = "orig.ident", pt.size = 0) 
 
-plot_grid(p1,p2) 
-ggsave(paste0(home_dir, "/Human_Viz_ortholog/pca_postbatch.pdf"))
+#plot_grid(p1,p2) 
+cairo_ps(filename= paste0(home_dir, "/Human_Viz_ortholog/1F_post.eps"), width = 9, height = 7) # name the file as an EPS
+p1 #variable of the figure that is defined/saved, can be used any name
+dev.off()
+#ggsave(paste0(home_dir, "/Human_Viz_ortholog/pca_postbatch.pdf"))
 
+stdev <- data_list@reductions$harmony@stdev
+variances <- (stdev)^2 / sum(stdev^2)
+write.csv(variances, file = paste0(home_dir, "/harmony_variances.csv"))
 
 #Looking better.
 
-ElbowPlot(data_list, reduction = "harmony", n = 50) 
-ggsave(paste0(home_dir, "/Human_Viz_ortholog/elbowplot.pdf"))
+#ElbowPlot(data_list, reduction = "harmony", n = 50) 
+#ggsave(paste0(home_dir, "/Human_Viz_ortholog/elbowplot.pdf"))
 
 
 #Lets try 30 PCs
@@ -202,48 +234,48 @@ ggsave(paste0(home_dir, "/Human_Viz_ortholog/elbowplot.pdf"))
 # Reducing Dimensionality
 #Performing Dimensional Reduction 
 
-data_list <- RunUMAP(data_list, reduction = "harmony", dims = 1:30, verbose = FALSE) 
+#data_list <- RunUMAP(data_list, reduction = "harmony", dims = 1:30, verbose = FALSE) 
 
-data_list <- FindNeighbors(data_list, reduction = "harmony", dims = 1:30, verbose = FALSE) 
+#data_list <- FindNeighbors(data_list, reduction = "harmony", dims = 1:30, verbose = FALSE) 
 
-data_list <- FindClusters(data_list, resolution = 0.6, verbose = FALSE) 
-
-
-
-dittoDimPlot(data_list, "seurat_clusters", do.label = TRUE, legend.show = FALSE, labels.size = 3) 
-ggsave(paste0(home_dir, "/Human_Viz_ortholog/seurat_clusters.pdf"))
-
-dittoDimPlot(data_list, "Genotype") 
-ggsave(paste0(home_dir, "/Human_Viz_ortholog/genotype.pdf"))
-
-dittoDimPlot(data_list, "orig.ident") 
-ggsave(paste0(home_dir, "/Human_Viz_ortholog/orig_ident.pdf"))
-
-dittoDimPlot(data_list, "percent.mt") 
-ggsave(paste0(home_dir, "/Human_Viz_ortholog/percent_mt.pdf"))
-
-dittoDimPlot(data_list, "Phase") 
-ggsave(paste0(home_dir, "/Human_Viz_ortholog/phase.pdf"))
+#data_list <- FindClusters(data_list, resolution = 0.6, verbose = FALSE) 
 
 
 
+#dittoDimPlot(data_list, "seurat_clusters", do.label = TRUE, legend.show = FALSE, labels.size = 3) 
+#ggsave(paste0(home_dir, "/Human_Viz_ortholog/seurat_clusters.pdf"))
 
-saveRDS(data_list, file = paste0(home_dir, "/AD_human_objects_ortholog/human_adc_final.RData"))
+#dittoDimPlot(data_list, "Genotype") 
+#ggsave(paste0(home_dir, "/Human_Viz_ortholog/genotype.pdf"))
+
+#dittoDimPlot(data_list, "orig.ident") 
+#ggsave(paste0(home_dir, "/Human_Viz_ortholog/orig_ident.pdf"))
+
+#dittoDimPlot(data_list, "percent.mt") 
+#ggsave(paste0(home_dir, "/Human_Viz_ortholog/percent_mt.pdf"))
+
+#dittoDimPlot(data_list, "Phase") 
+#ggsave(paste0(home_dir, "/Human_Viz_ortholog/phase.pdf"))
+
+
+
+
+#saveRDS(data_list, file = paste0(home_dir, "/AD_human_objects_ortholog/human_adc_final.RData"))
 #data_list <- readRDS(file = paste0(home_dir, "/AD_human_objects/human_adc_final.RData"))
 
-marker_list <- c("UGT8", "KLK6", "KCNH8", "ERMN", "OPALIN",
-                 "SLC14A1", "GLIS3", "GLI3", "CHRDL1", "NWD1",
-                 "GPR183", "LAPTM5", "CSF1R", "CD14",
-                 "APOLD1", "TM4SF1", "FLT1", "A2M",
-                 "PDGFRA", "LHFPL3", "MEGF11", "PCDH15",
-                 "RELN", "TMEM130", "DLX5", "SST", "EGFR")
+#marker_list <- c("UGT8", "KLK6", "KCNH8", "ERMN", "OPALIN",
+                 #"SLC14A1", "GLIS3", "GLI3", "CHRDL1", "NWD1",
+                 #"GPR183", "LAPTM5", "CSF1R", "CD14",
+                 #"APOLD1", "TM4SF1", "FLT1", "A2M",
+                 #"PDGFRA", "LHFPL3", "MEGF11", "PCDH15",
+                 #"RELN", "TMEM130", "DLX5", "SST", "EGFR")
 
-for(i in marker_list){
-  dittoDimPlot(data_list, var = i, assay = "RNA")
-  ggsave(paste0(home_dir, "/Human_Viz_ortholog/markers/",i, "_umap.pdf"))
-  print(VlnPlot(data_list, i, assay = "RNA"))
-  ggsave(paste0(home_dir, "/Human_Viz_ortholog/markers/",i, "_vln.pdf"))
-}
+#for(i in marker_list){
+  #dittoDimPlot(data_list, var = i, assay = "RNA")
+  #ggsave(paste0(home_dir, "/Human_Viz_ortholog/markers/",i, "_umap.pdf"))
+  #print(VlnPlot(data_list, i, assay = "RNA"))
+  #ggsave(paste0(home_dir, "/Human_Viz_ortholog/markers/",i, "_vln.pdf"))
+#}
 
 
 # Finding Cluster Identifications

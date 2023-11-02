@@ -26,7 +26,9 @@ combined <- readRDS(file = paste0(home_dir, "/AD_mouse_objects_ortholog/mouse_sp
 
 ```{r}
 suvo <- read_tsv(paste0(home_dir, "/AD_human_objects_ortholog/cp_mean_coeff_suvo.tsv"))
+#suvo <- read.csv(paste0(home_dir, "/AD_human_objects_ortholog/cp_suvo_filtered.csv"), row.names = 1)
 ```
+
 ```{r}
 suvo <- suvo[,-1]
 suvo <- data.frame(t(suvo))
@@ -109,12 +111,21 @@ head(suvo)
 head(spca_loadings)
 ```
 
+
 ```{r}
-significant_pcs <- c(1, 2, 3, 4, 6, 8, 9, 10, 11, 13, 14, 19, 22,
-                     24, 25, 26, 41, 42, 43, 50)
-spca_loadings <- spca_loadings[,significant_pcs]
+write.csv(spca_loadings, file = paste0(home_dir, "/drug_orthologs/spca_loadings.csv"), row.names = TRUE)
+write.csv(suvo, file = paste0(home_dir, "/drug_orthologs/suvo_orthologs.csv"), row.names = TRUE)
 ```
 
+
+```{r}
+significant_pcs <- c(2, 3, 4, 6, 7, 9, 10, 
+                     11, 12, 14, 15, 17, 20,
+                     22, 23, 24, 25, 29, 30,
+                     32, 36,
+                     42, 45, 46, 47, 50)
+spca_loadings <- spca_loadings[,significant_pcs]
+```
 
 ```{r}
 suvo_mouse_cor_spca <- cor(spca_loadings, suvo, method = c("spearman"))
@@ -125,8 +136,20 @@ ggcorrplot(suvo_mouse_cor_spca)
 ```
 
 ```{r}
+#write.csv(suvo_mouse_cor_spca, file = paste0(home_dir, "/correlations/suvorexant_spca_nofilter.csv"))
+write.csv(suvo_mouse_cor_spca, file = paste0(home_dir, "/correlations/suvorexant_spca_filter.csv"))
+```
+
+
+```{r}
 max(suvo_mouse_cor_spca)
 min(suvo_mouse_cor_spca)
 ```
 
+
+
+# End
+```{r}
+
+```
 
