@@ -1,0 +1,660 @@
+---
+title: "Fishers Code and p-value Bar Chart"
+author: "Brendan Ball"
+date: "11/6/2023"
+output: html_document
+---
+
+```{r Library Packages Installation, warning=FALSE}
+# Downloads and calls from the library the necessary packages needed to run the code
+if(!require(dplyr)) install.packages("dplyr", repos = "http://cran.us.r-project.org")
+suppressWarnings(library (dplyr, verbose = FALSE))
+if(!require(ggplot2)) install.packages("ggplot2", repos = "http://cran.us.r-project.org")
+suppressWarnings(library (ggplot2, verbose = FALSE))
+if(!require(data.table)) install.packages("data.table", repos = "http://cran.us.r-project.org")
+suppressWarnings(library (data.table, verbose = FALSE))
+```
+
+```{r Fishers Test for PCA}
+# import the different drugs 
+# import the pca_loadings.csv and spca_loadings.csv 
+
+SB40 <- read.csv("SB40_orthologs_pca.csv", row.names = 1) 
+SB40_df <- as.data.frame(SB40)
+#pca_loadings <- data.frame(read.csv("/Users/park1102/Downloads/pca_loadings.csv", row.names = 1))
+pca_loadings <- as.data.frame(read.csv("pca_loadings.csv", row.names = 1))
+suvo_df <- as.data.frame(read.csv("suvo_orthologs_pca.csv", row.names = 1))
+SB33_df <- as.data.frame(read.csv("SB33_orthologs_pca.csv", row.names = 1))
+almo_df <- as.data.frame(read.csv("almo_orthologs_pca.csv", row.names = 1))
+
+#SB40 ******************************************
+# normalize the data 
+norm_SB40 <- scale(as.numeric(as.matrix(SB40_df)), center = TRUE, scale = TRUE)
+row.names(norm_SB40) <- row.names(SB40_df) 
+
+# obtain p-value from two tailed 
+SB40_pval <- 2*pnorm(q = abs(norm_SB40), lower.tail= FALSE)
+sig_SB40 <- SB40_pval[(SB40_pval <= 0.05),]
+df_sig_SB40 <- as.data.frame(sig_SB40) # 135 genes 
+
+write.csv(df_sig_SB40, "SB40_DEG.csv")
+
+# get the original coefficient values from filtered suvo list 
+SB40_names <- row.names(df_sig_SB40)
+filt_SB40 <- as.data.frame(SB40_df[c(SB40_names),])
+row.names(filt_SB40) <- c(SB40_names)
+colnames(filt_SB40) <- c('coeff')
+
+write.csv(filt_SB40, "cp_SB40_filtered.csv")
+
+#suvo *************************************
+# normalize the data 
+norm_suvo <- scale(as.numeric(as.matrix(suvo_df)), center = TRUE, scale = TRUE)
+row.names(norm_suvo) <- row.names(suvo_df) 
+
+# obtain p-value from two tailed 
+suvo_pval <- 2*pnorm(q = abs(norm_suvo), lower.tail= FALSE)
+sig_suvo <- suvo_pval[(suvo_pval <= 0.05),]
+df_sig_suvo <- as.data.frame(sig_suvo) #128 
+
+write.csv(df_sig_suvo, "suvo_DEG.csv")
+
+# get the original coefficient values from filtered suvo list 
+suvo_names <- row.names(df_sig_suvo)
+filt_suvo <- as.data.frame(suvo_df[c(suvo_names),])
+row.names(filt_suvo) <- c(suvo_names)
+colnames(filt_suvo) <- c('coeff')
+
+write.csv(filt_suvo, "cp_suvo_filtered.csv")
+
+# almo *************************** 
+# normalize the data 
+norm_almo <- scale(as.numeric(as.matrix(almo_df)), center = TRUE, scale = TRUE)
+row.names(norm_almo) <- row.names(almo_df) 
+
+# obtain p-value from two tailed 
+almo_pval <- 2*pnorm(q = abs(norm_almo), lower.tail= FALSE)
+sig_almo <- almo_pval[(almo_pval <= 0.05),]
+df_sig_almo <- as.data.frame(sig_almo) #126  genes 
+
+write.csv(df_sig_almo, "almo_DEG.csv")
+
+# get the original coefficient values from filtered almo lsit 
+almo_names <- row.names(df_sig_almo)
+filt_almo <- as.data.frame(almo_df[c(almo_names),])
+row.names(filt_almo) <- c(almo_names)
+colnames(filt_almo) <- c('coeff')
+
+write.csv(filt_almo, "cp_almo_filtered.csv")
+
+# SB33 ***********************************
+# normalize the data 
+norm_SB33 <- scale(as.numeric(as.matrix(SB33_df)), center = TRUE, scale = TRUE)
+row.names(norm_SB33) <- row.names(SB33_df) 
+
+# obtain p-value from two tailed 
+SB33_pval <- 2*pnorm(q = abs(norm_SB33), lower.tail= FALSE)
+sig_SB33 <- SB33_pval[(SB33_pval <= 0.05),]
+df_sig_SB33 <- as.data.frame(sig_SB33) #138 genes 
+
+write.csv(df_sig_SB33, "SB33_DEG.csv")
+
+# get the original coefficient values from filtered almo lsit 
+SB33_names <- row.names(df_sig_SB33)
+filt_SB33 <- as.data.frame(SB33_df[c(SB33_names),])
+row.names(filt_SB33) <- c(SB33_names)
+colnames(filt_SB33) <- c('coeff')
+
+write.csv(filt_SB33, "cp_SB33_filtered.csv")
+
+
+# for loop get the gene names based on sorted pca_loading 
+pca_sorted <- data.frame(matrix(nrow = nrow(pca_loadings), ncol = 0)) 
+for (x in 1:ncol(pca_loadings)) {
+  pc_temp <- pca_loadings[order(pca_loadings[,x]),]
+  pca_sorted <- cbind(pca_sorted,row.names(pc_temp), pc_temp[,x])
+}
+
+# 10% take 112 each top/bottom 
+# 5% take 56 each top/bottom 
+# 20% take 223 each top/bottom 
+
+# get the top/bottom 10% genes 
+pca10 <- pca_sorted[c(1:112,(2228-112+1):2228),]
+# get the top/bottom 5% genes 
+pca5 <- pca_sorted[c(1:56,(2228-56+1):2228),]
+# get the top/bottom 20% genes 
+pca20 <- pca_sorted[c(1:223,(2228-223+1):2228),]
+
+# get the not top/bottom 10% genes 
+pca10no <- pca_sorted[113:2116,]
+# get the not top/bottom 5% genes 
+pca5no <- pca_sorted[57:2172,]
+# get the not top/bottom 20% genes 
+pca20no <- pca_sorted[224:2005,]
+
+# get only the gene names
+pca_genes10 <- pca10[,seq(1, ncol(pca10),2)]
+
+pca_genes10no <- pca10no[,seq(1, ncol(pca10no),2)]
+
+#SB40 
+# create temporary data to create contingency table for Fisher's exact test 
+pca_cont_df <- data.frame(matrix(nrow = 4, ncol = 0))
+for (x in 1:ncol(pca_genes10)) {
+  drug_pc <- length(intersect(row.names(filt_SB40), pca_genes10[,x]))
+  drug_nopc <- length(setdiff(row.names(filt_SB40), pca_genes10[,x]))
+  nodrug_pc <- length(setdiff(pca_genes10[,x], row.names(filt_SB40)))
+  nodrug_nopc <- length(pca_genes10no[!(pca_genes10no[,x] %in% row.names(filt_SB40)) & !(pca_genes10no[,x] %in% pca_genes10[,x]),x])
+  pca_cont_df <- cbind(pca_cont_df, rbind(drug_pc, drug_nopc, nodrug_pc, nodrug_nopc))
+}
+
+#SB33
+# create temporary data to create contingency table for Fisher's exact test 
+pca_cont_df <- data.frame(matrix(nrow = 4, ncol = 0))
+for (x in 1:ncol(pca_genes10)) {
+  drug_pc <- length(intersect(row.names(filt_SB33), pca_genes10[,x]))
+  drug_nopc <- length(setdiff(row.names(filt_SB33), pca_genes10[,x]))
+  nodrug_pc <- length(setdiff(pca_genes10[,x], row.names(filt_SB33)))
+  nodrug_nopc <- length(pca_genes10no[!(pca_genes10no[,x] %in% row.names(filt_SB33)) & !(pca_genes10no[,x] %in% pca_genes10[,x]),x])
+  pca_cont_df <- cbind(pca_cont_df, rbind(drug_pc, drug_nopc, nodrug_pc, nodrug_nopc))
+}
+
+#Suvo
+# create temporary data to create contingency table for Fisher's exact test 
+pca_cont_df <- data.frame(matrix(nrow = 4, ncol = 0))
+for (x in 1:ncol(pca_genes10)) {
+  drug_pc <- length(intersect(row.names(filt_suvo), pca_genes10[,x]))
+  drug_nopc <- length(setdiff(row.names(filt_suvo), pca_genes10[,x]))
+  nodrug_pc <- length(setdiff(pca_genes10[,x], row.names(filt_suvo)))
+  nodrug_nopc <- length(pca_genes10no[!(pca_genes10no[,x] %in% row.names(filt_suvo)) & !(pca_genes10no[,x] %in% pca_genes10[,x]),x])
+  pca_cont_df <- cbind(pca_cont_df, rbind(drug_pc, drug_nopc, nodrug_pc, nodrug_nopc))
+}
+
+#Almo
+# create temporary data to create contingency table for Fisher's exact test 
+pca_cont_df <- data.frame(matrix(nrow = 4, ncol = 0))
+for (x in 1:ncol(pca_genes10)) {
+  drug_pc <- length(intersect(row.names(filt_almo), pca_genes10[,x]))
+  drug_nopc <- length(setdiff(row.names(filt_almo), pca_genes10[,x]))
+  nodrug_pc <- length(setdiff(pca_genes10[,x], row.names(filt_almo)))
+  nodrug_nopc <- length(pca_genes10no[!(pca_genes10no[,x] %in% row.names(filt_almo)) & !(pca_genes10no[,x] %in% pca_genes10[,x]),x])
+  pca_cont_df <- cbind(pca_cont_df, rbind(drug_pc, drug_nopc, nodrug_pc, nodrug_nopc))
+}
+
+
+# https://statsandr.com/blog/fisher-s-exact-test-in-r-independence-test-for-a-small-sample/
+
+# build the contingency table and perform fisher's test 
+fishers <- data.frame(matrix(nrow = 1, ncol = 0))
+for (x in 1:ncol(pca_cont_df)) {
+  cont_df <- data.frame(
+    "PCA yes" = pca_cont_df[c(1,3),x],
+    "PCA no" = pca_cont_df[c(2,4),x],
+    row.names = c("Drug yes", "Drug no"),
+    stringsAsFactors = FALSE
+  )
+  colnames(cont_df) <- c("PCA yes", "PCA no")
+  
+  fishers_test <- fisher.test(cont_df)
+  fishers <- cbind(fishers, fishers_test$p.value)
+}
+
+row.names(fishers) <- c("p-value")
+colnames(fishers) <- colnames(pca_loadings)
+
+write.csv(fishers, "Almo_PCA_fishers_top10genes.csv")
+```
+
+```{r Fishers Test for sPCA}
+# import the different drugs 
+# import the spca_loadings.csv 
+
+#SB40 <- read.csv("/Users/park1102/Downloads/SB40_orthologs_pca.csv", row.names = 1) 
+#SB40_df <- as.data.frame(SB40)
+#pca_loadings <- data.frame(read.csv("/Users/park1102/Downloads/pca_loadings.csv", row.names = 1))
+spca_loadings <- as.data.frame(read.csv("spca_loadings.csv", row.names = 1))
+suvo_df <- as.data.frame(read.csv("suvo_orthologs_spca.csv", row.names = 1))
+SB33_df <- as.data.frame(read.csv("SB33_orthologs_spca.csv", row.names = 1))
+SB40_df <- as.data.frame(read.csv("SB40_orthologs_spca.csv", row.names = 1))
+almo_df <- as.data.frame(read.csv("almo_orthologs_spca.csv", row.names = 1))
+
+#SB40 ******************************************
+# normalize the data 
+norm_SB40 <- scale(as.numeric(as.matrix(SB40_df)), center = TRUE, scale = TRUE)
+row.names(norm_SB40) <- row.names(SB40_df) 
+
+# obtain p-value from two tailed 
+SB40_pval <- 2*pnorm(q = abs(norm_SB40), lower.tail= FALSE)
+sig_SB40 <- SB40_pval[(SB40_pval <= 0.05),]
+df_sig_SB40 <- as.data.frame(sig_SB40) # 614 genes 
+
+write.csv(df_sig_SB40, "SB40_DEG.csv")
+
+# get the original coefficient values from filtered suvo list 
+SB40_names <- row.names(df_sig_SB40)
+filt_SB40 <- as.data.frame(SB40_df[c(SB40_names),])
+row.names(filt_SB40) <- c(SB40_names)
+colnames(filt_SB40) <- c('coeff')
+
+write.csv(filt_SB40, "cp_SB40_filtered.csv")
+
+#suvo *************************************
+# normalize the data 
+norm_suvo <- scale(as.numeric(as.matrix(suvo_df)), center = TRUE, scale = TRUE)
+row.names(norm_suvo) <- row.names(suvo_df) 
+
+# obtain p-value from two tailed 
+suvo_pval <- 2*pnorm(q = abs(norm_suvo), lower.tail= FALSE)
+sig_suvo <- suvo_pval[(suvo_pval <= 0.05),]
+df_sig_suvo <- as.data.frame(sig_suvo) #600 genes
+
+write.csv(df_sig_suvo, "suvo_DEG.csv")
+
+# get the original coefficient values from filtered suvo list 
+suvo_names <- row.names(df_sig_suvo)
+filt_suvo <- as.data.frame(suvo_df[c(suvo_names),])
+row.names(filt_suvo) <- c(suvo_names)
+colnames(filt_suvo) <- c('coeff')
+
+write.csv(filt_suvo, "cp_suvo_filtered.csv")
+
+# almo *************************** 
+# normalize the data 
+norm_almo <- scale(as.numeric(as.matrix(almo_df)), center = TRUE, scale = TRUE)
+row.names(norm_almo) <- row.names(almo_df) 
+
+# obtain p-value from two tailed 
+almo_pval <- 2*pnorm(q = abs(norm_almo), lower.tail= FALSE)
+sig_almo <- almo_pval[(almo_pval <= 0.05),]
+df_sig_almo <- as.data.frame(sig_almo) #630  genes 
+
+write.csv(df_sig_almo, "almo_DEG.csv")
+
+# get the original coefficient values from filtered almo lsit 
+almo_names <- row.names(df_sig_almo)
+filt_almo <- as.data.frame(almo_df[c(almo_names),])
+row.names(filt_almo) <- c(almo_names)
+colnames(filt_almo) <- c('coeff')
+
+write.csv(filt_almo, "cp_almo_filtered.csv")
+
+# SB33 ***********************************
+# normalize the data 
+norm_SB33 <- scale(as.numeric(as.matrix(SB33_df)), center = TRUE, scale = TRUE)
+row.names(norm_SB33) <- row.names(SB33_df) 
+
+# obtain p-value from two tailed 
+SB33_pval <- 2*pnorm(q = abs(norm_SB33), lower.tail= FALSE)
+sig_SB33 <- SB33_pval[(SB33_pval <= 0.05),]
+df_sig_SB33 <- as.data.frame(sig_SB33) #626 genes 
+
+write.csv(df_sig_SB33, "SB33_DEG.csv")
+
+# get the original coefficient values from filtered almo lsit 
+SB33_names <- row.names(df_sig_SB33)
+filt_SB33 <- as.data.frame(SB33_df[c(SB33_names),])
+row.names(filt_SB33) <- c(SB33_names)
+colnames(filt_SB33) <- c('coeff')
+
+write.csv(filt_SB33, "cp_SB33_filtered.csv")
+
+# for loop get the gene names based on sorted spca_loading 
+spca_sorted <- data.frame(matrix(nrow = nrow(spca_loadings), ncol = 0)) 
+for (x in 1:ncol(spca_loadings)) {
+  spc_temp <- spca_loadings[order(spca_loadings[,x]),]
+  spca_sorted <- cbind(spca_sorted,row.names(spc_temp), spc_temp[,x])
+}
+
+# 10% take 536 each top/bottom 
+# 5% take 268 each top/bottom 
+# 20% take 1072 each top/bottom 
+
+# get the top/bottom 10% genes 
+spca10 <- spca_sorted[c(1:536,(10712-536+1):10712),]
+# get the top/bottom 5% genes 
+spca5 <- spca_sorted[c(1:268,(10712-268+1):10712),]
+# get the top/bottom 20% genes 
+spca20 <- spca_sorted[c(1:1072,(10712-1072+1):10712),]
+
+# get the not top/bottom 10% genes 
+spca10no <- spca_sorted[537:10176,]
+# get the not top/bottom 5% genes 
+spca5no <- spca_sorted[269:10444,]
+# get the not top/bottom 20% genes 
+spca20no <- spca_sorted[1072:9640,]
+
+
+# get only the gene names
+spca_genes10 <- spca10[,seq(1, ncol(spca10),2)]
+
+spca_genes10no <- spca10no[,seq(1, ncol(spca10no),2)]
+
+#SB40 
+# create temporary data to create contingency table for Fisher's exact test 
+spca_cont_df <- data.frame(matrix(nrow = 4, ncol = 0))
+for (x in 1:ncol(spca_genes10)) {
+  drug_pc <- length(intersect(row.names(filt_SB40), spca_genes10[,x]))
+  drug_nopc <- length(setdiff(row.names(filt_SB40), spca_genes10[,x]))
+  nodrug_pc <- length(setdiff(spca_genes10[,x], row.names(filt_SB40)))
+  nodrug_nopc <- length(spca_genes10no[!(spca_genes10no[,x] %in% row.names(filt_SB40)) & !(spca_genes10no[,x] %in% spca_genes10[,x]),x])
+  spca_cont_df <- cbind(spca_cont_df, rbind(drug_pc, drug_nopc, nodrug_pc, nodrug_nopc))
+}
+
+#SB33
+# create temporary data to create contingency table for Fisher's exact test 
+spca_cont_df <- data.frame(matrix(nrow = 4, ncol = 0))
+for (x in 1:ncol(spca_genes10)) {
+  drug_pc <- length(intersect(row.names(filt_SB33), spca_genes10[,x]))
+  drug_nopc <- length(setdiff(row.names(filt_SB33), spca_genes10[,x]))
+  nodrug_pc <- length(setdiff(spca_genes10[,x], row.names(filt_SB33)))
+  nodrug_nopc <- length(spca_genes10no[!(spca_genes10no[,x] %in% row.names(filt_SB33)) & !(spca_genes10no[,x] %in% spca_genes10[,x]),x])
+  spca_cont_df <- cbind(spca_cont_df, rbind(drug_pc, drug_nopc, nodrug_pc, nodrug_nopc))
+}
+
+#Suvo
+# create temporary data to create contingency table for Fisher's exact test 
+spca_cont_df <- data.frame(matrix(nrow = 4, ncol = 0))
+for (x in 1:ncol(spca_genes10)) {
+  drug_pc <- length(intersect(row.names(filt_suvo), spca_genes10[,x]))
+  drug_nopc <- length(setdiff(row.names(filt_suvo), spca_genes10[,x]))
+  nodrug_pc <- length(setdiff(spca_genes10[,x], row.names(filt_suvo)))
+  nodrug_nopc <- length(spca_genes10no[!(spca_genes10no[,x] %in% row.names(filt_suvo)) & !(spca_genes10no[,x] %in% spca_genes10[,x]),x])
+  spca_cont_df <- cbind(spca_cont_df, rbind(drug_pc, drug_nopc, nodrug_pc, nodrug_nopc))
+}
+
+#Almo
+# create temporary data to create contingency table for Fisher's exact test 
+spca_cont_df <- data.frame(matrix(nrow = 4, ncol = 0))
+for (x in 1:ncol(spca_genes10)) {
+  drug_pc <- length(intersect(row.names(filt_almo), spca_genes10[,x]))
+  drug_nopc <- length(setdiff(row.names(filt_almo), spca_genes10[,x]))
+  nodrug_pc <- length(setdiff(spca_genes10[,x], row.names(filt_almo)))
+  nodrug_nopc <- length(spca_genes10no[!(spca_genes10no[,x] %in% row.names(filt_almo)) & !(spca_genes10no[,x] %in% spca_genes10[,x]),x])
+  spca_cont_df <- cbind(spca_cont_df, rbind(drug_pc, drug_nopc, nodrug_pc, nodrug_nopc))
+}
+
+
+# https://statsandr.com/blog/fisher-s-exact-test-in-r-independence-test-for-a-small-sample/
+
+# build the contingency table and perform fisher's test 
+fishers <- data.frame(matrix(nrow = 1, ncol = 0))
+for (x in 1:ncol(spca_cont_df)) {
+  cont_df <- data.frame(
+    "sPCA yes" = spca_cont_df[c(1,3),x],
+    "sPCA no" = spca_cont_df[c(2,4),x],
+    row.names = c("Drug yes", "Drug no"),
+    stringsAsFactors = FALSE
+  )
+  colnames(cont_df) <- c("sPCA yes", "sPCA no")
+  
+  fishers_test <- fisher.test(cont_df)
+  fishers <- cbind(fishers, fishers_test$p.value)
+}
+
+row.names(fishers) <- c("p-value")
+colnames(fishers) <- colnames(spca_loadings)
+
+write.csv(fishers, "Almo_sPCA_fishers_top10genes.csv")
+```
+
+
+The plotting of the -log(p-value) for the Fishers test
+
+```{r Data Import}
+# Download the Fishers test results for top 10 and bottom 10 genes
+# Almorexant
+Almo_PCA <- read.csv("Almo_PCA_fishers_top10genes.csv")
+Almo_sPCA <- read.csv("Almo_sPCA_fishers_top10genes.csv")
+# SB-334867
+SB33_PCA <- read.csv("SB33_PCA_fishers_top10genes.csv")
+SB33_sPCA <- read.csv("SB33_sPCA_fishers_top10genes.csv")
+# SB-408124
+SB40_PCA<- read.csv("SB40_PCA_fishers_top10genes.csv")
+SB40_sPCA <- read.csv("SB40_sPCA_fishers_top10genes.csv")
+# Suvorexant
+Suvo_PCA <- read.csv("Suvo_PCA_fishers_top10genes.csv")
+Suvo_sPCA <- read.csv("Suvo_sPCA_fishers_top10genes.csv")
+```
+
+```{r PCA of Almorexant and Suvorexant Dual Inhibitors, fig.height=3.8, fig.width=3.8}
+# Create a data frame for PCA and the significant PCs
+Almo_PCA_list <- t(subset(Almo_PCA, select=c(PC_1, PC_9, PC_3, PC_6, PC_16, PC_15, PC_10, PC_38, PC_47, PC_12, PC_11, PC_33, PC_46, PC_25, PC_26, PC_19, PC_41, PC_39, PC_50, PC_29, PC_23, PC_48, PC_31, PC_2, PC_28)))
+Suvo_PCA_list <- t(subset(Suvo_PCA, select=c(PC_1, PC_9, PC_3, PC_6, PC_16, PC_15, PC_10, PC_38, PC_47, PC_12, PC_11, PC_33, PC_46, PC_25, PC_26, PC_19, PC_41, PC_39, PC_50, PC_29, PC_23, PC_48, PC_31, PC_2, PC_28)))
+# Create the list for PCA
+PCA_list <- c("PC_1", "PC_9", "PC_3", "PC_6", "PC_16", "PC_15", "PC_10", "PC_38", "PC_47", "PC_12", "PC_11", "PC_33", "PC_46", "PC_25", "PC_26", "PC_19", "PC_41", "PC_39", "PC_50", "PC_29", "PC_23", "PC_48", "PC_31", "PC_2", "PC_28")
+Almo_PCA_list <- cbind(PCA_list, Almo_PCA_list)
+Suvo_PCA_list <- cbind(PCA_list, Suvo_PCA_list)
+# Remove the row name
+rownames(Almo_PCA_list) <- NULL
+Almo_PCA_list <- as.data.frame(Almo_PCA_list)
+rownames(Suvo_PCA_list) <- NULL
+Suvo_PCA_list <- as.data.frame(Suvo_PCA_list)
+# Rename the columns
+colnames(Almo_PCA_list)[1] <- "PC"
+colnames(Almo_PCA_list)[2] <- "Almo_p_val"
+colnames(Suvo_PCA_list)[1] <- "PC"
+colnames(Suvo_PCA_list)[2] <- "Suvo_p_val"
+# Make the p-value numeric
+Almo_PCA_list$Almo_p_val <- as.numeric(Almo_PCA_list$Almo_p_val)
+Suvo_PCA_list$Suvo_p_val <- as.numeric(Suvo_PCA_list$Suvo_p_val)
+# -Log10 transformation
+Almo_PCA_list$Almo_p_val <- -log10(Almo_PCA_list$Almo_p_val)
+Suvo_PCA_list$Suvo_p_val <- -log10(Suvo_PCA_list$Suvo_p_val)
+# Combine the p-values together with the dual inhibitors
+Dual_PCA_list <- cbind(Almo_PCA_list$PC, Almo_PCA_list$Almo_p_val, Suvo_PCA_list$Suvo_p_val)
+Dual_PCA_list <- as.data.frame(Dual_PCA_list)
+# Rename the columns
+colnames(Dual_PCA_list)[1] <- "PC"
+colnames(Dual_PCA_list)[2] <- "Almo_p_val"
+colnames(Dual_PCA_list)[3] <- "Suvo_p_val"
+# Make the p-values numeric
+Dual_PCA_list$Almo_p_val <- as.numeric(Dual_PCA_list$Almo_p_val)
+Dual_PCA_list$Suvo_p_val <- as.numeric(Dual_PCA_list$Suvo_p_val)
+
+
+# Plot of the PCs for each drug
+ggplot(Dual_PCA_list, aes(x = Almo_p_val, y = Suvo_p_val)) +
+  geom_point(color = "black", size = 2.5) +  # Change point color and size
+  labs(title = "Suvorexant vs Almorexant PCA",
+       x = "-log10(pval) Almo",
+       y = "-log10(pval) Suvo") + 
+  theme_bw() + theme(panel.grid=element_blank()) + scale_x_continuous(limits = c(0, 2.1)) +
+  scale_y_continuous(limits = c(0, 3)) + geom_hline(yintercept = 1.3, size = 0.3, linetype="dashed") + geom_vline(xintercept = 1.3, size = 0.3, linetype="dashed")
+
+# Plot to identify the PCs in the scatter plot space
+ggplot(Dual_PCA_list, aes(x = Almo_p_val, y = Suvo_p_val, label = PC)) +
+  geom_point(color = "black", size = 2.5) +
+  geom_text(hjust = 0, vjust = 0, size = 2) +
+  labs(title = "Suvorexant vs Almorexant PCA",
+       x = "-log10(pval) Almo",
+       y = "-log10(pval) Suvo") +
+  theme_bw() + theme(panel.grid = element_blank()) +
+  scale_x_continuous(limits = c(0, 2.1)) +
+  scale_y_continuous(limits = c(0, 3))
+```
+
+```{r PCA of SB-408124 and SB-334867 Single Receptor Inhibitors, fig.height=3.8, fig.width=3.8}
+# Create a data frame for PCA and the significant PCs
+SB33_PCA_list <- t(subset(SB33_PCA, select=c(PC_1, PC_9, PC_3, PC_6, PC_16, PC_15, PC_10, PC_38, PC_47, PC_12, PC_11, PC_33, PC_46, PC_25, PC_26, PC_19, PC_41, PC_39, PC_50, PC_29, PC_23, PC_48, PC_31, PC_2, PC_28)))
+SB40_PCA_list <- t(subset(SB40_PCA, select=c(PC_1, PC_9, PC_3, PC_6, PC_16, PC_15, PC_10, PC_38, PC_47, PC_12, PC_11, PC_33, PC_46, PC_25, PC_26, PC_19, PC_41, PC_39, PC_50, PC_29, PC_23, PC_48, PC_31, PC_2, PC_28)))
+# Create the list for PCA
+PCA_list <- c("PC_1", "PC_9", "PC_3", "PC_6", "PC_16", "PC_15", "PC_10", "PC_38", "PC_47", "PC_12", "PC_11", "PC_33", "PC_46", "PC_25", "PC_26", "PC_19", "PC_41", "PC_39", "PC_50", "PC_29", "PC_23", "PC_48", "PC_31", "PC_2", "PC_28")
+SB33_PCA_list <- cbind(PCA_list, SB33_PCA_list)
+SB40_PCA_list <- cbind(PCA_list, SB40_PCA_list)
+# Remove the row name
+rownames(SB33_PCA_list) <- NULL
+SB33_PCA_list <- as.data.frame(SB33_PCA_list)
+rownames(SB40_PCA_list) <- NULL
+SB40_PCA_list <- as.data.frame(SB40_PCA_list)
+# Rename the columns
+colnames(SB33_PCA_list)[1] <- "PC"
+colnames(SB33_PCA_list)[2] <- "SB33_p_val"
+colnames(SB40_PCA_list)[1] <- "PC"
+colnames(SB40_PCA_list)[2] <- "SB40_p_val"
+# Make the p-value numeric
+SB33_PCA_list$SB33_p_val <- as.numeric(SB33_PCA_list$SB33_p_val)
+SB40_PCA_list$SB40_p_val <- as.numeric(SB40_PCA_list$SB40_p_val)
+# -Log10 transformation
+SB33_PCA_list$SB33_p_val <- -log10(SB33_PCA_list$SB33_p_val)
+SB40_PCA_list$SB40_p_val <- -log10(SB40_PCA_list$SB40_p_val)
+# Combine the p-values together with the Single inhibitors
+Single_PCA_list <- cbind(SB33_PCA_list$PC, SB33_PCA_list$SB33_p_val, SB40_PCA_list$SB40_p_val)
+Single_PCA_list <- as.data.frame(Single_PCA_list)
+# Rename the columns
+colnames(Single_PCA_list)[1] <- "PC"
+colnames(Single_PCA_list)[2] <- "SB33_p_val"
+colnames(Single_PCA_list)[3] <- "SB40_p_val"
+# Make the p-values numeric
+Single_PCA_list$SB33_p_val <- as.numeric(Single_PCA_list$SB33_p_val)
+Single_PCA_list$SB40_p_val <- as.numeric(Single_PCA_list$SB40_p_val)
+
+# Plot of the PCs for each drug
+ggplot(Single_PCA_list, aes(x = SB33_p_val, y = SB40_p_val)) +
+  geom_point(color = "black", size = 2.5) +  # Change point color and size
+  labs(title = "SB408124 vs SB334867 PCA",
+       x = "-log10(pval) SB33",
+       y = "-log10(pval) SB40") + 
+  theme_bw() + theme(panel.grid=element_blank()) + scale_x_continuous(limits = c(0, 1.7)) +
+  scale_y_continuous(limits = c(0, 4)) + geom_hline(yintercept = 1.3, size = 0.3, linetype="dashed") + geom_vline(xintercept = 1.3, size = 0.3, linetype="dashed")
+
+# Plot to identify the PCs in the scatter plot space
+ggplot(Single_PCA_list, aes(x = SB33_p_val, y = SB40_p_val, label = PC)) +
+  geom_point(color = "black", size = 2.5) +
+  geom_text(hjust = 0, vjust = 0, size = 2) +
+  labs(title = "SB408124 vs SB334867 PCA",
+       x = "-log10(pval) SB33",
+       y = "-log10(pval) SB40") +
+  theme_bw() + theme(panel.grid = element_blank()) +
+  scale_x_continuous(limits = c(0, 1.7)) +
+  scale_y_continuous(limits = c(0, 4))
+```
+
+```{r sPCA of Almorexant and Suvorexant Dual Inhibitors, fig.height=3.8, fig.width=3.8}
+# Create a data frame for PCA and the significant PCs
+Almo_sPCA_list <- t(subset(Almo_sPCA, select=c(spca_6, spca_2, spca_4, spca_7, spca_10, spca_9, spca_14, spca_15, spca_25, spca_11, spca_12, spca_23, spca_20, spca_42, spca_46, spca_29, spca_50, spca_32, spca_47, spca_17, spca_22, spca_36, spca_24, spca_30, spca_3, spca_45)))
+Suvo_sPCA_list <- t(subset(Suvo_sPCA, select=c(spca_6, spca_2, spca_4, spca_7, spca_10, spca_9, spca_14, spca_15, spca_25, spca_11, spca_12, spca_23, spca_20, spca_42, spca_46, spca_29, spca_50, spca_32, spca_47, spca_17, spca_22, spca_36, spca_24, spca_30, spca_3, spca_45)))
+# Create the list for PCA
+sPCA_list <- c("spca_6", "spca_2", "spca_4", "spca_7", "spca_10", "spca_9", "spca_14", "spca_15", "spca_25", "spca_11", "spca_12", "spca_23", "spca_20", "spca_42", "spca_46", "spca_29", "spca_50", "spca_32", "spca_47", "spca_17", "spca_22", "spca_36", "spca_24", "spca_30", "spca_3", "spca_45")
+Almo_sPCA_list <- cbind(sPCA_list, Almo_sPCA_list)
+Suvo_sPCA_list <- cbind(sPCA_list, Suvo_sPCA_list)
+# Remove the row name
+rownames(Almo_sPCA_list) <- NULL
+Almo_sPCA_list <- as.data.frame(Almo_sPCA_list)
+rownames(Suvo_sPCA_list) <- NULL
+Suvo_sPCA_list <- as.data.frame(Suvo_sPCA_list)
+# Rename the columns
+colnames(Almo_sPCA_list)[1] <- "PC"
+colnames(Almo_sPCA_list)[2] <- "Almo_p_val"
+colnames(Suvo_sPCA_list)[1] <- "PC"
+colnames(Suvo_sPCA_list)[2] <- "Suvo_p_val"
+# Make the p-value numeric
+Almo_sPCA_list$Almo_p_val <- as.numeric(Almo_sPCA_list$Almo_p_val)
+Suvo_sPCA_list$Suvo_p_val <- as.numeric(Suvo_sPCA_list$Suvo_p_val)
+# -Log10 transformation
+Almo_sPCA_list$Almo_p_val <- -log10(Almo_sPCA_list$Almo_p_val)
+Suvo_sPCA_list$Suvo_p_val <- -log10(Suvo_sPCA_list$Suvo_p_val)
+# Combine the p-values together with the dual inhibitors
+Dual_sPCA_list <- cbind(Almo_sPCA_list$PC, Almo_sPCA_list$Almo_p_val, Suvo_sPCA_list$Suvo_p_val)
+Dual_sPCA_list <- as.data.frame(Dual_sPCA_list)
+# Rename the columns
+colnames(Dual_sPCA_list)[1] <- "PC"
+colnames(Dual_sPCA_list)[2] <- "Almo_p_val"
+colnames(Dual_sPCA_list)[3] <- "Suvo_p_val"
+# Make the p-values numeric
+Dual_sPCA_list$Almo_p_val <- as.numeric(Dual_sPCA_list$Almo_p_val)
+Dual_sPCA_list$Suvo_p_val <- as.numeric(Dual_sPCA_list$Suvo_p_val)
+
+# Plot of the PCs for each drug
+ggplot(Dual_sPCA_list, aes(x = Almo_p_val, y = Suvo_p_val)) +
+  geom_point(color = "black", size = 2.5) +  # Change point color and size
+  labs(title = "Suvorexant vs Almorexant sPCA",
+       x = "-log10(pval) Almo",
+       y = "-log10(pval) Suvo") + 
+  theme_bw() + theme(panel.grid=element_blank()) + scale_x_continuous(limits = c(0, 5.5)) +
+  scale_y_continuous(limits = c(0, 2.5)) + geom_hline(yintercept = 1.3, size = 0.3, linetype="dashed") + geom_vline(xintercept = 1.3, size = 0.3, linetype="dashed")
+
+# Plot to identify the PCs in the scatter plot space
+ggplot(Dual_sPCA_list, aes(x = Almo_p_val, y = Suvo_p_val, label = PC)) +
+  geom_point(color = "black", size = 2.5) +
+  geom_text(hjust = 0, vjust = 0, size = 2) +
+  labs(title = "Suvorexant vs Almorexant sPCA",
+       x = "-log10(pval) Almo",
+       y = "-log10(pval) Suvo") +
+  theme_bw() + theme(panel.grid = element_blank()) +
+  scale_x_continuous(limits = c(0, 5.5)) +
+  scale_y_continuous(limits = c(0, 2.5))
+```
+
+```{r sPCA of SB-408124 and SB-334867 Single Receptor Inhibitors, fig.height=3.8, fig.width=3.8}
+# Create a data frame for PCA and the significant PCs
+SB33_sPCA_list <- t(subset(SB33_sPCA, select=c(spca_6, spca_2, spca_4, spca_7, spca_10, spca_9, spca_14, spca_15, spca_25, spca_11, spca_12, spca_23, spca_20, spca_42, spca_46, spca_29, spca_50, spca_32, spca_47, spca_17, spca_22, spca_36, spca_24, spca_30, spca_3, spca_45)))
+SB40_sPCA_list <- t(subset(SB40_sPCA, select=c(spca_6, spca_2, spca_4, spca_7, spca_10, spca_9, spca_14, spca_15, spca_25, spca_11, spca_12, spca_23, spca_20, spca_42, spca_46, spca_29, spca_50, spca_32, spca_47, spca_17, spca_22, spca_36, spca_24, spca_30, spca_3, spca_45)))
+# Create the list for PCA
+sPCA_list <- c("spca_6", "spca_2", "spca_4", "spca_7", "spca_10", "spca_9", "spca_14", "spca_15", "spca_25", "spca_11", "spca_12", "spca_23", "spca_20", "spca_42", "spca_46", "spca_29", "spca_50", "spca_32", "spca_47", "spca_17", "spca_22", "spca_36", "spca_24", "spca_30", "spca_3", "spca_45")
+SB33_sPCA_list <- cbind(sPCA_list, SB33_sPCA_list)
+SB40_sPCA_list <- cbind(sPCA_list, SB40_sPCA_list)
+# Remove the row name
+rownames(SB33_sPCA_list) <- NULL
+SB33_sPCA_list <- as.data.frame(SB33_sPCA_list)
+rownames(SB40_sPCA_list) <- NULL
+SB40_sPCA_list <- as.data.frame(SB40_sPCA_list)
+# Rename the columns
+colnames(SB33_sPCA_list)[1] <- "PC"
+colnames(SB33_sPCA_list)[2] <- "SB33_p_val"
+colnames(SB40_sPCA_list)[1] <- "PC"
+colnames(SB40_sPCA_list)[2] <- "SB40_p_val"
+# Make the p-value numeric
+SB33_sPCA_list$SB33_p_val <- as.numeric(SB33_sPCA_list$SB33_p_val)
+SB40_sPCA_list$SB40_p_val <- as.numeric(SB40_sPCA_list$SB40_p_val)
+# -Log10 transformation
+SB33_sPCA_list$SB33_p_val <- -log10(SB33_sPCA_list$SB33_p_val)
+SB40_sPCA_list$SB40_p_val <- -log10(SB40_sPCA_list$SB40_p_val)
+# Combine the p-values together with the Single inhibitors
+Single_sPCA_list <- cbind(SB33_sPCA_list$PC, SB33_sPCA_list$SB33_p_val, SB40_sPCA_list$SB40_p_val)
+Single_sPCA_list <- as.data.frame(Single_sPCA_list)
+# Rename the columns
+colnames(Single_sPCA_list)[1] <- "PC"
+colnames(Single_sPCA_list)[2] <- "SB33_p_val"
+colnames(Single_sPCA_list)[3] <- "SB40_p_val"
+# Make the p-values numeric
+Single_sPCA_list$SB33_p_val <- as.numeric(Single_sPCA_list$SB33_p_val)
+Single_sPCA_list$SB40_p_val <- as.numeric(Single_sPCA_list$SB40_p_val)
+
+# Plot of the PCs for each drug
+ggplot(Single_sPCA_list, aes(x = SB33_p_val, y = SB40_p_val)) +
+  geom_point(color = "black", size = 2.5) +  # Change point color and size
+  labs(title = "SB408124 vs SB334867 sPCA",
+       x = "-log10(pval) SB33",
+       y = "-log10(pval) SB40") + 
+  theme_bw() + theme(panel.grid=element_blank()) + scale_x_continuous(limits = c(0, 2.5)) +
+  scale_y_continuous(limits = c(0, 3)) + geom_hline(yintercept = 1.3, size = 0.3, linetype="dashed") + geom_vline(xintercept = 1.3, size = 0.3, linetype="dashed")
+
+# Plot to identify the PCs in the scatter plot space
+ggplot(Single_sPCA_list, aes(x = SB33_p_val, y = SB40_p_val, label = PC)) +
+  geom_point(color = "black", size = 2.5) +
+  geom_text(hjust = 0, vjust = 0, size = 2) +
+  labs(title = "SB408124 vs SB334867 sPCA",
+       x = "-log10(pval) SB33",
+       y = "-log10(pval) SB40") +
+  theme_bw() + theme(panel.grid = element_blank()) +
+  scale_x_continuous(limits = c(0, 2.5)) +
+  scale_y_continuous(limits = c(0, 3))
+```
+
+```{r}
+##Saved the charts above into a variable p1, to then export out, used for the box-whisker plots
+cairo_ps(filename='sPCA_SBdrugs.eps', width=3.8, height=3.8)
+p1
+dev.off()
+```
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,341 @@
+---
+title: "FGSEA RCode"
+author: "Brendan Ball"
+date: "11/3/2023"
+output: html_document
+---
+
+```{r Library Packages Installation, warning=FALSE}
+# Downloads and calls from the library the necessary packages needed to run the code
+if(!require(dplyr)) install.packages("dplyr", repos = "http://cran.us.r-project.org")
+suppressWarnings(library (dplyr, verbose = FALSE))
+if(!require(ggplot2)) install.packages("ggplot2", repos = "http://cran.us.r-project.org")
+suppressWarnings(library (ggplot2, verbose = FALSE))
+if(!require(data.table)) install.packages("data.table", repos = "http://cran.us.r-project.org")
+suppressWarnings(library (data.table, verbose = FALSE))
+```
+
+# 1. Figure 4 FGSEA Material
+
+```{r Data Import}
+# Download the PC9 from PCA for KEGG
+PCA9_KEGG <- read.csv("fgsea_pca9_results_kegg.csv")
+# Removing unneeded columns of the data set
+PCA9_KEGG <- subset(PCA9_KEGG, select = -c(4,5,7,8))
+# Download the sPC6 from sPCA for KEGG
+sPCA6_KEGG <- read.csv("fgsea_spca6_results_kegg.csv")
+# Removing unneeded columns of the data set
+sPCA6_KEGG <- subset(sPCA6_KEGG, select = -c(4,5,7,8))
+```
+
+```{r NES Barchart, fig.width=4, fig.height=3}
+# Renaming Columns to match constraints
+names(PCA9_KEGG)[2] <- 'p_val'
+names(PCA9_KEGG)[3] <- 'FDR'
+names(PCA9_KEGG)[4] <- 'NES'
+
+# Order by FDR
+PCA9_KEGG <- PCA9_KEGG[order(PCA9_KEGG$FDR),]
+
+# Remove the Data Below FDR of 0.25 (0.25 is considered the level of significance)
+PCA9_KEGG <- PCA9_KEGG[with(PCA9_KEGG, !((FDR >= 0.25))), ]
+Proc_PCA9_KEGG <- PCA9_KEGG %>%
+  mutate(sign = NES <= 0)
+
+# Renaming the rows with text that is easier to read
+Proc_PCA9_KEGG$pathway[1] <- "Parkinson's Disease"
+Proc_PCA9_KEGG$pathway[2] <- "Oxidative Phosphorylation"
+Proc_PCA9_KEGG$pathway[3] <- "Alzheimer's Disease"
+Proc_PCA9_KEGG$pathway[4] <- "Cardiac Muscle Contraction"
+Proc_PCA9_KEGG$pathway[5] <- "Huntington's Disease"
+Proc_PCA9_KEGG$pathway[6] <- "Ribosome"
+Proc_PCA9_KEGG$pathway[7] <- "Cytokine Cytokine Receptor Interaction"
+Proc_PCA9_KEGG$pathway[8] <- "O-Glycan Biosynthesis"
+Proc_PCA9_KEGG$pathway[9] <- "Primary Immunodeficiency"
+Proc_PCA9_KEGG$pathway[10] <- "Aldosterone Regulated Sodium Reabsorption"
+Proc_PCA9_KEGG$pathway[11] <- "Chronic Myeloid Leukemia"
+Proc_PCA9_KEGG$pathway[12] <- "Cell Cycle"
+
+# Adjust the positions on the bar chart to display bars from lowest NES value to largest value
+positions <- c("Parkinson's Disease", "Oxidative Phosphorylation", "Cardiac Muscle Contraction", "Ribosome", "Alzheimer's Disease", "Huntington's Disease", "Aldosterone Regulated Sodium Reabsorption", "Cell Cycle", "Chronic Myeloid Leukemia", "O-Glycan Biosynthesis", "Primary Immunodeficiency", "Cytokine Cytokine Receptor Interaction") 
+
+# Creating the horizontal bar plots
+ggplot(Proc_PCA9_KEGG) +
+  geom_col(aes(x = NES, y = pathway, fill=sign), colour = "black", width = 1) + 
+  ylab(NULL) + xlab("NES") + theme_minimal() + 
+  theme(legend.position = "none", text=element_text(color="black", size = 10), 
+        axis.text = element_text(color = "black", size=10)) + 
+  xlim(c(-3,3)) + scale_y_discrete(limits = positions) + scale_fill_manual(values = c("red2", "royalblue1"))
+```
+
+```{r NES Barchart, fig.width=4, fig.height=3}
+# Renaming Columns to match constraints
+names(sPCA6_KEGG)[2] <- 'p_val'
+names(sPCA6_KEGG)[3] <- 'FDR'
+names(sPCA6_KEGG)[4] <- 'NES'
+
+# Order by FDR
+sPCA6_KEGG <- sPCA6_KEGG[order(sPCA6_KEGG$FDR),]
+
+# Remove the Data Below FDR of 0.25 (0.25 is considered the level of significance)
+sPCA6_KEGG <- sPCA6_KEGG[with(sPCA6_KEGG, !((FDR >= 0.25))), ]
+Proc_sPCA6_KEGG <- sPCA6_KEGG %>%
+  mutate(sign = NES <= 0)
+
+# Renaming the rows with text that is easier to read
+Proc_sPCA6_KEGG$pathway[1] <- "Ribosome"
+Proc_sPCA6_KEGG$pathway[2] <- "Complement and Coagulation Cascades"
+Proc_sPCA6_KEGG$pathway[3] <- "DNA Replication"
+Proc_sPCA6_KEGG$pathway[4] <- "Cardiac Muscle Contraction"
+Proc_sPCA6_KEGG$pathway[5] <- "Cell Cycle"
+Proc_sPCA6_KEGG$pathway[6] <- "Oocyte Meiosis"
+Proc_sPCA6_KEGG$pathway[7] <- "Homologous Recombination"
+Proc_sPCA6_KEGG$pathway[8] <- "Huntington's Disease"
+Proc_sPCA6_KEGG$pathway[9] <- "Nucleotide Excision Repair"
+Proc_sPCA6_KEGG$pathway[10] <- "Oxidative Phosphorylation"
+Proc_sPCA6_KEGG$pathway[11] <- "Parkinson's Disease"
+Proc_sPCA6_KEGG$pathway[12] <- "Amino Sugar and Nucleotide Sugar Metabolism"
+Proc_sPCA6_KEGG$pathway[13] <- "ABC Transporters"
+Proc_sPCA6_KEGG$pathway[14] <- "Base Excision Repair"
+Proc_sPCA6_KEGG$pathway[15] <- "Mismatch Repair"
+Proc_sPCA6_KEGG$pathway[16] <- "Phenylalanine Metabolism"
+Proc_sPCA6_KEGG$pathway[17] <- "Dorso Ventral Axis Formation"
+Proc_sPCA6_KEGG$pathway[18] <- "Arrythmogenic Right Ventricular Cardiomyopathy"
+Proc_sPCA6_KEGG$pathway[19] <- "Alzheimer's Disease"
+Proc_sPCA6_KEGG$pathway[20] <- "Lysosome"
+Proc_sPCA6_KEGG$pathway[21] <- "Cytokine Cytokine Receptor Interaction"
+Proc_sPCA6_KEGG$pathway[22] <- "Nitrogen Metabolism"
+Proc_sPCA6_KEGG$pathway[23] <- "Type I Diabetes Mellitus"
+
+# Adjust the positions on the bar chart to display bars from lowest NES value to largest value
+positions <- c("Ribosome", "DNA Replication", "Cardiac Muscle Contraction", "Nucleotide Excision Repair", "Mismatch Repair", "Homologous Recombination", "Cell Cycle", "Oocyte Meiosis", "Base Excision Repair", "Nitrogen Metabolism", "Parkinson's Disease", "Oxidative Phosphorylation", "Huntington's Disease", "Arrythmogenic Right Ventricular Cardiomyopathy", "Alzheimer's Disease", "Cytokine Cytokine Receptor Interaction", "Lysosome", "Type I Diabetes Mellitus", "Phenylalanine Metabolism", "Dorso Ventral Axis Formation", "ABC Transporters", "Amino Sugar and Nucleotide Sugar Metabolism", "Complement and Coagulation Cascades") 
+
+# Creating the horizontal bar plots
+ggplot(Proc_sPCA6_KEGG) +
+  geom_col(aes(x = NES, y = pathway, fill=sign), colour = "black", width = 1) + 
+  ylab(NULL) + xlab("NES") + theme_minimal() + 
+  theme(legend.position = "none", text=element_text(color="black", size = 10), 
+        axis.text = element_text(color = "black", size=10)) + 
+  xlim(c(-3,3)) + scale_y_discrete(limits = positions) + scale_fill_manual(values = c("red2", "royalblue1"))
+```
+
+```{r File Saving}
+##Saved the charts above into a variable p1, to then export out, used for the box-whisker plots
+cairo_ps(filename='sPCA6_KEGGpathway.eps', width=4, height=3)
+p2
+dev.off()
+```
+
+# 2. Figure 5 GSEA Material (Single OX-Inhibitor Drugs)
+
+```{r Data Import}
+# Download the PC10 from PCA for KEGG
+PCA10_KEGG <- read.csv("fgsea_pca10_results_kegg.csv")
+# Removing unneeded columns of the data set
+PCA10_KEGG <- subset(PCA10_KEGG, select = -c(4,5,7,8))
+# Download the sPC4 from sPCA for KEGG
+sPCA4_KEGG <- read.csv("fgsea_spca4_results_kegg.csv")
+# Removing unneeded columns of the data set
+sPCA4_KEGG <- subset(sPCA4_KEGG, select = -c(4,5,7,8))
+```
+
+```{r NES Barchart, fig.width=4, fig.height=3}
+# Renaming Columns to match constraints
+names(PCA10_KEGG)[2] <- 'p_val'
+names(PCA10_KEGG)[3] <- 'FDR'
+names(PCA10_KEGG)[4] <- 'NES'
+
+# Order by FDR
+PCA10_KEGG <- PCA10_KEGG[order(PCA10_KEGG$FDR),]
+
+# Remove the Data Below FDR of 0.25 (0.25 is considered the level of significance)
+PCA10_KEGG <- PCA10_KEGG[with(PCA10_KEGG, !((FDR >= 0.25))), ]
+Proc_PCA10_KEGG <- PCA10_KEGG %>%
+  mutate(sign = NES <= 0)
+
+# Renaming the rows with text that is easier to read
+Proc_PCA10_KEGG$pathway[1] <- "Parkinson's Disease"
+Proc_PCA10_KEGG$pathway[2] <- "Oxidative Phosphorylation"
+Proc_PCA10_KEGG$pathway[3] <- "Huntington's Disease"
+Proc_PCA10_KEGG$pathway[4] <- "Cardiac Muscle Contraction"
+Proc_PCA10_KEGG$pathway[5] <- "Alzheimer's Disease"
+Proc_PCA10_KEGG$pathway[6] <- "Ribosome"
+Proc_PCA10_KEGG$pathway[7] <- "Epithelial Cell Signaling in Helicobacter Pylori Infection"
+Proc_PCA10_KEGG$pathway[8] <- "T-Cell Receptor Signaling Pathway"
+Proc_PCA10_KEGG$pathway[9] <- "TGF Beta Signaling Pathway"
+
+# Adjust the positions on the bar chart to display bars from lowest NES value to largest value
+positions <- c("T-Cell Receptor Signaling Pathway", "Epithelial Cell Signaling in Helicobacter Pylori Infection", "TGF Beta Signaling Pathway", "Ribosome", "Alzheimer's Disease", "Cardiac Muscle Contraction", "Huntington's Disease", "Oxidative Phosphorylation", "Parkinson's Disease") 
+
+# Creating the horizontal bar plots
+p1 <- ggplot(Proc_PCA10_KEGG) +
+  geom_col(aes(x = NES, y = pathway, fill=sign), colour = "black", width = 1) + 
+  ylab(NULL) + xlab("NES") + theme_minimal() + 
+  theme(legend.position = "none", text=element_text(color="black", size = 10), 
+        axis.text = element_text(color = "black", size=10)) + 
+  xlim(c(-3,3)) + scale_y_discrete(limits = positions) + scale_fill_manual(values = c("red2", "royalblue1"))
+```
+
+```{r File Saving}
+##Saved the charts above into a variable p1, to then export out, used for the box-whisker plots
+cairo_ps(filename='PCA10_KEGGpathway.eps', width=6, height=4)
+p1
+dev.off()
+```
+
+```{r NES Barchart, fig.width=4, fig.height=3}
+# Renaming Columns to match constraints
+names(sPCA4_KEGG)[2] <- 'p_val'
+names(sPCA4_KEGG)[3] <- 'FDR'
+names(sPCA4_KEGG)[4] <- 'NES'
+
+# Order by FDR
+sPCA4_KEGG <- sPCA4_KEGG[order(sPCA4_KEGG$FDR),]
+
+# Remove the Data Below FDR of 0.25 (0.25 is considered the level of significance)
+sPCA4_KEGG <- sPCA4_KEGG[with(sPCA4_KEGG, !((FDR >= 0.25))), ]
+Proc_sPCA4_KEGG <- sPCA4_KEGG %>%
+  mutate(sign = NES <= 0)
+
+# Renaming the rows with text that is easier to read
+Proc_sPCA4_KEGG$pathway[1] <- "Oxidative Phosphorylation"
+Proc_sPCA4_KEGG$pathway[2] <- "Parkinson's Disease"
+Proc_sPCA4_KEGG$pathway[3] <- "JAK-STAT Signaling Pathway"
+Proc_sPCA4_KEGG$pathway[4] <- "Ribosome"
+Proc_sPCA4_KEGG$pathway[5] <- "Alzheimer's Disease"
+Proc_sPCA4_KEGG$pathway[6] <- "Natural Killer Cell Mediated Cytotoxicity"
+
+# Adjust the positions on the bar chart to display bars from lowest NES value to largest value
+positions <- c("Parkinson's Disease", "Oxidative Phosphorylation", "Ribosome", "Alzheimer's Disease", "JAK-STAT Signaling Pathway", "Natural Killer Cell Mediated Cytotoxicity") 
+
+# Creating the horizontal bar plots
+ggplot(Proc_sPCA4_KEGG) +
+  geom_col(aes(x = NES, y = pathway, fill=sign), colour = "black", width = 1) + 
+  ylab(NULL) + xlab("NES") + theme_minimal() + 
+  theme(legend.position = "none", text=element_text(color="black", size = 10), 
+        axis.text = element_text(color = "black", size=10)) + 
+  xlim(c(-3,3)) + scale_y_discrete(limits = positions) + scale_fill_manual(values = c("red2", "royalblue1"))
+```
+
+# 2. Figure 6 GSEA Material (Dual OX-Inhibitor Drugs)
+
+```{r Data Import}
+# Download the PC3 from PCA for KEGG
+PCA3_KEGG <- read.csv("fgsea_pca3_results_kegg.csv")
+# Removing unneeded columns of the data set
+PCA3_KEGG <- subset(PCA3_KEGG, select = -c(4,5,7,8))
+# Download the sPC3 from sPCA for KEGG
+sPCA3_KEGG <- read.csv("fgsea_spca3_results_kegg.csv")
+# Removing unneeded columns of the data set
+sPCA3_KEGG <- subset(sPCA3_KEGG, select = -c(4,5,7,8))
+```
+
+```{r NES Barchart, fig.width=4, fig.height=3}
+# Renaming Columns to match constraints
+names(PCA3_KEGG)[2] <- 'p_val'
+names(PCA3_KEGG)[3] <- 'FDR'
+names(PCA3_KEGG)[4] <- 'NES'
+
+# Order by FDR
+PCA3_KEGG <- PCA3_KEGG[order(PCA3_KEGG$FDR),]
+
+# Remove the Data Below FDR of 0.25 (0.25 is considered the level of significance)
+PCA3_KEGG <- PCA3_KEGG[with(PCA3_KEGG, !((FDR >= 0.25))), ]
+Proc_PCA3_KEGG <- PCA3_KEGG %>%
+  mutate(sign = NES <= 0)
+
+# Renaming the rows with text that is easier to read
+Proc_PCA3_KEGG$pathway[1] <- "Ribosome"
+Proc_PCA3_KEGG$pathway[2] <- "Non-Small Cell Lung Cancer"
+Proc_PCA3_KEGG$pathway[3] <- "Tight Junction"
+Proc_PCA3_KEGG$pathway[4] <- "Pancreatic Cancer"
+Proc_PCA3_KEGG$pathway[5] <- "Oxidative Phosphorylation"
+Proc_PCA3_KEGG$pathway[6] <- "Ether Lipid Metabolism"
+Proc_PCA3_KEGG$pathway[7] <- "Antigen Processing and Presentation"
+
+# Adjust the positions on the bar chart to display bars from lowest NES value to largest value
+positions <- c("Tight Junction", "Non-Small Cell Lung Cancer", "Pancreatic Cancer", "Ether Lipid Metabolism", "Oxidative Phosphorylation", "Antigen Processing and Presentation", "Ribosome") 
+
+# Creating the horizontal bar plots
+ggplot(Proc_PCA3_KEGG) +
+  geom_col(aes(x = NES, y = pathway, fill=sign), colour = "black", width = 1) + 
+  ylab(NULL) + xlab("NES") + theme_minimal() + 
+  theme(legend.position = "none", text=element_text(color="black", size = 10), 
+        axis.text = element_text(color = "black", size=10)) + 
+  xlim(c(-3,3)) + scale_y_discrete(limits = positions) + scale_fill_manual(values = c("red2", "royalblue1"))
+```
+
+```{r NES Barchart, fig.width=4, fig.height=3}
+# Renaming Columns to match constraints
+names(sPCA3_KEGG)[2] <- 'p_val'
+names(sPCA3_KEGG)[3] <- 'FDR'
+names(sPCA3_KEGG)[4] <- 'NES'
+
+# Order by FDR
+sPCA3_KEGG <- sPCA3_KEGG[order(sPCA3_KEGG$FDR),]
+
+# Remove the Data Below FDR of 0.25 (0.25 is considered the level of significance)
+sPCA3_KEGG <- sPCA3_KEGG[with(sPCA3_KEGG, !((FDR >= 0.25))), ]
+Proc_sPCA3_KEGG <- sPCA3_KEGG %>%
+  mutate(sign = NES <= 0)
+
+# Renaming the rows with text that is easier to read
+Proc_sPCA3_KEGG$pathway[1] <- "Ribosome"
+Proc_sPCA3_KEGG$pathway[2] <- "Oxidative Phosphorylation"
+Proc_sPCA3_KEGG$pathway[3] <- "Parkinson's Disease"
+Proc_sPCA3_KEGG$pathway[4] <- "Huntington's Disease"
+Proc_sPCA3_KEGG$pathway[5] <- "Alzheimer's Disease"
+Proc_sPCA3_KEGG$pathway[6] <- "Cardiac Muscle Contraction"
+Proc_sPCA3_KEGG$pathway[7] <- "Insulin Signaling Pathway"
+Proc_sPCA3_KEGG$pathway[8] <- "Tight Junction"
+Proc_sPCA3_KEGG$pathway[9] <- "ERBB Signaling Pathway"
+Proc_sPCA3_KEGG$pathway[10] <- "Maturity Onset Diabetes of the Young"
+Proc_sPCA3_KEGG$pathway[11] <- "Hematopoietic Cell Lineage"
+Proc_sPCA3_KEGG$pathway[12] <- "FC Gamma R Mediated Phagocytosis"
+Proc_sPCA3_KEGG$pathway[13] <- "Chronic Myeloid Leukemia"
+Proc_sPCA3_KEGG$pathway[14] <- "Pancreatic Cancer"
+Proc_sPCA3_KEGG$pathway[15] <- "Phosphatidylinositol Signaling System"
+Proc_sPCA3_KEGG$pathway[16] <- "Pantothenate and CoA Biosynthesis"
+Proc_sPCA3_KEGG$pathway[17] <- "Nicotinate and Nicotinamide Metabolism"
+Proc_sPCA3_KEGG$pathway[18] <- "Cell Cycle"
+Proc_sPCA3_KEGG$pathway[19] <- "Complement and Coagulation Cascades"
+Proc_sPCA3_KEGG$pathway[20] <- "Primary Immunodeficiency"
+Proc_sPCA3_KEGG$pathway[21] <- "Ubiquitin Mediated Proteolysis"
+Proc_sPCA3_KEGG$pathway[22] <- "Asthma"
+Proc_sPCA3_KEGG$pathway[23] <- "Colorectal Cancer"
+Proc_sPCA3_KEGG$pathway[24] <- "FC Epsilon RI Signaling Pathway"
+Proc_sPCA3_KEGG$pathway[25] <- "Glycosphingolipid Biosynthesis Lacto and Neolacto Series"
+Proc_sPCA3_KEGG$pathway[26] <- "Non-Small Cell Lung Cancer"
+Proc_sPCA3_KEGG$pathway[27] <- "TGF Beta Signaling Pathway"
+Proc_sPCA3_KEGG$pathway[28] <- "Hedgehog Signaling Pathway"
+Proc_sPCA3_KEGG$pathway[29] <- "Type II Diabetes Mellitus"
+Proc_sPCA3_KEGG$pathway[30] <- "Pentose Phosphate Pathway"
+Proc_sPCA3_KEGG$pathway[31] <- "Proximal Tubule Bicarbonate Reclamation"
+Proc_sPCA3_KEGG$pathway[32] <- "Neurotrophin Signaling Pathway"
+Proc_sPCA3_KEGG$pathway[33] <- "Antigen Processing and Presentation"
+Proc_sPCA3_KEGG$pathway[34] <- "Renal Cell Carcinoma"
+Proc_sPCA3_KEGG$pathway[35] <- "MTOR Signaling Pathway"
+Proc_sPCA3_KEGG$pathway[36] <- "WNT Signaling Pathway"
+Proc_sPCA3_KEGG$pathway[37] <- "Prion Diseases"
+Proc_sPCA3_KEGG$pathway[38] <- "Metabolism of Xenobiotics by Cyt p450"
+
+# Adjust the positions on the bar chart to display bars from lowest NES value to largest value
+positions <- c("Ribosome", "Oxidative Phosphorylation", "Parkinson's Disease", "Maturity Onset Diabetes of the Young", "Cardiac Muscle Contraction", "Huntington's Disease", "Hematopoietic Cell Lineage", "Nicotinate and Nicotinamide Metabolism", "Primary Immunodeficiency", "Alzheimer's Disease", "Asthma", "Proximal Tubule Bicarbonate Reclamation", "Complement and Coagulation Cascades", "Antigen Processing and Presentation", "Pentose Phosphate Pathway", "Metabolism of Xenobiotics by Cyt p450", "WNT Signaling Pathway", "Neurotrophin Signaling Pathway", "Ubiquitin Mediated Proteolysis", "Renal Cell Carcinoma", "MTOR Signaling Pathway", "Cell Cycle", "Prion Diseases", "TGF Beta Signaling Pathway", "FC Epsilon RI Signaling Pathway", "Colorectal Cancer", "Hedgehog Signaling Pathway", "Type II Diabetes Mellitus", "Glycosphingolipid Biosynthesis Lacto and Neolacto Series", "Non-Small Cell Lung Cancer", "FC Gamma R Mediated Phagocytosis", "Phosphatidylinositol Signaling System", "Tight Junction", "Pantothenate and CoA Biosynthesis", "Chronic Myeloid Leukemia", "Pancreatic Cancer", "Insulin Signaling Pathway", "ERBB Signaling Pathway") 
+
+# Creating the horizontal bar plots
+ggplot(Proc_sPCA3_KEGG) +
+  geom_col(aes(x = NES, y = pathway, fill=sign), colour = "black", width = 1) + 
+  ylab(NULL) + xlab("NES") + theme_minimal() + 
+  theme(legend.position = "none", text=element_text(color="black", size = 10), 
+        axis.text = element_text(color = "black", size=10)) + 
+  xlim(c(-3,3)) + scale_y_discrete(limits = positions) + scale_fill_manual(values = c("red2", "royalblue1"))
+```
+
+```{r File Saving}
+##Saved the charts above into a variable p1, to then export out, used for the box-whisker plots
+cairo_ps(filename='sPCA3_KEGGpathway.eps', width=6, height=9)
+p2
+dev.off()
+```
+
+

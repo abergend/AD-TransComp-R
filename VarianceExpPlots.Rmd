@@ -1,0 +1,100 @@
+---
+title: "VarianceExpPlots"
+author: "Brendan Ball"
+date: "11/7/2023"
+output: html_document
+---
+
+```{r Library Packages Installation, warning=FALSE}
+# Downloads and calls from the library the necessary packages needed to run the code
+if(!require(dplyr)) install.packages("dplyr", repos = "http://cran.us.r-project.org")
+suppressWarnings(library (dplyr, verbose = FALSE))
+if(!require(ggplot2)) install.packages("ggplot2", repos = "http://cran.us.r-project.org")
+suppressWarnings(library (ggplot2, verbose = FALSE))
+if(!require(data.table)) install.packages("data.table", repos = "http://cran.us.r-project.org")
+suppressWarnings(library (data.table, verbose = FALSE))
+```
+
+```{r Data Import}
+# Download the CSV files for variances
+PCAhuman<- read.csv("pca_variances.csv")
+sPCAhuman <- read.csv("spca_variances.csv")
+PCAmouse <- read.csv("pca_variances_mouse.csv")
+sPCAmouse <- read.csv("spca_variances_mouse.csv")
+```
+
+```{r Human and Mouse Variance Explained in PCA, fig.width=2, fig.height=1.5}
+# Combine the human and mouse $ variance explained
+PCAvar <- cbind(PCAhuman$principal_component, PCAhuman$variance, PCAmouse$x)
+PCAvar <- as.data.frame(PCAvar)
+# Rename the columns
+colnames(PCAvar)[1] <- "PC"
+colnames(PCAvar)[2] <- "HumanPC"
+colnames(PCAvar)[3] <- "MousePC"
+# Make the columns numeric
+PCAvar$HumanPC <- as.numeric(PCAvar$HumanPC)
+PCAvar$MousePC <- as.numeric(PCAvar$MousePC)
+
+PCAvar_sig <- PCAvar[c(1,9,3,6,16,15,10,38,47,12,11,33,46,25,26,19,41,39,50,29,23,48,31,2,28),]
+
+# Plot of the PCs
+p1 <- ggplot(PCAvar_sig, aes(x = HumanPC, y = MousePC)) +
+  geom_point(color = "black", size = 2.5) +  # Change point color and size
+  labs(title = "PCA",
+       x = "Percent Variance Explained in Human",
+       y = "Percent Variance Explained in Mouse") +
+  theme_bw() + theme(panel.grid=element_blank()) + scale_x_continuous(limits = c(0, 0.2)) + scale_y_continuous(limits = c(0, 0.2)) 
+
+# Plot to identify the PCs in the scatter plot space
+ggplot(PCAvar_sig, aes(x = HumanPC, y = MousePC, label = PC)) +
+  geom_point(color = "black", size = 2.5) +
+  geom_text(hjust = 0, vjust = 0, size = 2) +
+  labs(title = "PCA",
+       x = "Percent Variance Explained in Human",
+       y = "Percent Variance Explained in Mouse") +
+  theme_bw() + theme(panel.grid = element_blank()) +
+  scale_x_continuous(limits = c(0, 0.2)) +
+  scale_y_continuous(limits = c(0, 0.2))
+```
+
+```{r Human and Mouse Variance Explained in sPCA, fig.width=2, fig.height=1.5}
+# Combine the human and mouse $ variance explained
+sPCAvar <- cbind(sPCAhuman$principal_component, sPCAhuman$variance, sPCAmouse$x)
+sPCAvar <- as.data.frame(sPCAvar)
+# Rename the columns
+colnames(sPCAvar)[1] <- "PC"
+colnames(sPCAvar)[2] <- "HumanPC"
+colnames(sPCAvar)[3] <- "MousePC"
+# Make the columns numeric
+sPCAvar$HumanPC <- as.numeric(sPCAvar$HumanPC)
+sPCAvar$MousePC <- as.numeric(sPCAvar$MousePC)
+
+sPCAvar_sig <- sPCAvar[c(6,2,4,7,10,9,14,15,25,11,12,23,20,42,46,29,50,32,47,17,17,22,36,24,30,3,45),]
+
+# Plot of the PCs
+p2 <-ggplot(sPCAvar_sig, aes(x = HumanPC, y = MousePC)) +
+  geom_point(color = "black", size = 2.5) +  # Change point color and size
+  labs(title = "sPCA",
+       x = "Percent Variance Explained in Human",
+       y = "Percent Variance Explained in Mouse") +
+  theme_bw() + theme(panel.grid=element_blank()) + scale_x_continuous(limits = c(0, 0.1)) + scale_y_continuous(limits = c(0, 0.1)) 
+
+# Plot to identify the PCs in the scatter plot space
+ggplot(sPCAvar_sig, aes(x = HumanPC, y = MousePC, label = PC)) +
+  geom_point(color = "black", size = 2.5) +
+  geom_text(hjust = 0, vjust = 0, size = 2) +
+  labs(title = "sPCA",
+       x = "Percent Variance Explained in Human",
+       y = "Percent Variance Explained in Mouse") +
+  theme_bw() + theme(panel.grid = element_blank()) +
+  scale_x_continuous(limits = c(0, 0.1)) +
+  scale_y_continuous(limits = c(0, 0.1))
+```
+
+```{r}
+##Saved the charts above into a variable p1, to then export out, used for the box-whisker plots
+cairo_ps(filename='PCA_humanmouse_var.eps', width=4, height=3)
+p1
+dev.off()
+```
+
