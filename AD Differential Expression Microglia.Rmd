@@ -22,26 +22,31 @@ home_dir <- "C:/Users/aberg/OneDrive/Desktop/Brubaker Summer Research 2023"
 # Mouse DE
 ## AD
 ```{r}
+# Filter out mouse to only contain good microglia
 combined <- readRDS(file = paste0(home_dir, "/AD_mouse_objects_ortholog/mouse_adwt_labeled.RData"))
 combined <- subset(combined, subset = summary == "Microglia")
 good_microglia <- readRDS(file = paste0(home_dir, "/AD_mouse_objects_ortholog/good_microglia_barcodes.RData"))
 combined <- subset(combined, cells = good_microglia)
 
-
+# Make AD or WT distiguisher the ident
 Idents(combined) <- combined@meta.data$Genotype
 
+# Obtain differential expression markers of AD samples using MAST, SampleID as latent variable to account for sample-sample differences
 de <- FindMarkers(combined, ident.1 = "AD", 
                   only.pos = TRUE, test.use = "MAST", 
                   latent.vars = "SampleID", assay = "RNA") 
  
 
+# Save data
 write.xlsx(de, file = paste0(home_dir, "/mouse_AD_markers_microglia.xlsx"), rowNames = TRUE) 
 ```
 
 ## WT
 ```{r}
+# Make AD or WT distiguisher the ident
 Idents(combined) <- combined@meta.data$Genotype
 
+# Obtain differential expression markers of WT samples using MAST, SampleID as latent variable to account for sample-sample differences
 de <- FindMarkers(combined, ident.1 = "WT", 
                   only.pos = TRUE, test.use = "MAST", 
                   latent.vars = "SampleID", assay = "RNA") 
@@ -70,33 +75,21 @@ microglia_ad <- data_frame[[1]]
 
 
 ```{r}
+# Assigning colnamse to dataframe
 colnames(microglia_ad) <- c("genes", "p_val", "avg_log2FC", "pct.1", "pct.2", "p_val_adj")
 colnames(microglia_wt) <- c("genes", "p_val", "avg_log2FC", "pct.1", "pct.2", "p_val_adj")
 ```
 
 
-```{r}
-microglia_ad
-dittoHeatmap(combined, genes = microglia_ad$genes[1:40],
-             annot.by = c("SampleID", "Genotype"), cluster_rows = FALSE,
-             assay = "RNA")
-```
 
 ```{r}
-help(dittoHeatmap)
-```
+# Pull top 15 DE genes from mouse and human
+combined_genes <- c(microglia_ad$genes[1:15], rev(microglia_wt$genes[1:15]))
 
-
-```{r}
-microglia_wt
-dittoHeatmap(combined, genes = microglia_wt$genes[1:30],
-             annot.by = c("SampleID", "Genotype"), assay = "RNA", cluster_rows = FALSE)
-```
-
-```{r}
+# Scale data for visualization
 combined <- ScaleData(combined, assay = "RNA")
 
-
+# Heatmap plot
 DoHeatmap(combined,
           features = combined_genes,
           group.by = "Genotype",
@@ -111,49 +104,24 @@ ggsave(filename = paste0(home_dir, "/Figures/Figure 2/2E.png"), width = 7, heigh
 
 
 
-
-
-```{r}
-breaksList <- seq(-1.75, 2, length.out = 12)
-combined_genes <- c(microglia_ad$genes[1:15], rev(microglia_wt$genes[1:15]))
-DefaultAssay(combined) <- "RNA"
-mouse_heatmap <- dittoHeatmap(combined, genes = combined_genes,
-             annot.by = c("Genotype"), cluster_rows = FALSE, assay = "RNA",
-             heatmap.colors = colorRampPalette(c("blue", "white", "red"))(12), 
-breaks = breaksList)
-
-```
-
-```{r}
-DoHeatmap(combined,
-          features = combined_genes,
-          group.by = "Genotype",
-          assay = "RNA",
-          label = FALSE)
-```
-
-
-```{r}
-cairo_ps(filename= paste0(home_dir, "/Figures/Figure 2/2E.eps"), width = 9, height = 7) # name the file as an EPS
-mouse_heatmap #variable of the figure that is defined/saved, can be used any name
-dev.off()
-```
-
-
 # Human DE
 ## AD
 ```{r}
+# Filtering so object only contains good microglial cells
 combined <- readRDS(file = paste0(home_dir, "/AD_human_objects_ortholog/human_adwt_labeled_ortholog.RData"))
 combined <- subset(combined, subset = summary == "Microglia")
 good_microglia <- readRDS(file = paste0(home_dir, "/AD_human_objects_ortholog/good_microglia_barcodes.RData"))
 combined <- subset(combined, cells = good_microglia)
 
+# Assigning AD or C as the idents
 Idents(combined) <- combined@meta.data$Genotype
 
+# Obtain differential expression markers of AD samples using MAST, orig.ident as latent variable to account for sample-sample differences
 de <- FindMarkers(combined, ident.1 = "AD", 
                   only.pos = TRUE, test.use = "MAST", 
                   latent.vars = "orig.ident", assay = "RNA") 
  
+# Save data
 write.xlsx(de, file = paste0(home_dir, "/human_AD_markers_microglia.xlsx"), rowNames = TRUE) 
 ```
 
@@ -162,12 +130,15 @@ write.xlsx(de, file = paste0(home_dir, "/human_AD_markers_microglia.xlsx"), rowN
 
 ## C 
 ```{r}
+# Assigning AD or C as the idents
 Idents(combined) <- combined@meta.data$Genotype
 
+# Obtain differential expression markers of C samples using MAST, orig.ident as latent variable to account for sample-sample differences
 de <- FindMarkers(combined, ident.1 = "C", 
                   only.pos = TRUE, test.use = "MAST", 
                   latent.vars = "orig.ident", assay = "RNA") 
  
+# Save data
 write.xlsx(de, file = paste0(home_dir, "/human_C_markers_microglia.xlsx"), rowNames = TRUE) 
 ```
 
@@ -192,25 +163,19 @@ microglia_human_ad <- data_frame[[1]]
 
 
 ```{r}
+# Renaming columns of data frame
 colnames(microglia_human_c) <- c("genes", "p_val", "avg_log2FC", "pct.1", "pct.2", "p_val_adj")
 colnames(microglia_human_ad) <- c("genes", "p_val", "avg_log2FC", "pct.1", "pct.2", "p_val_adj")
 ```
 
 ```{r}
-microglia_human_ad
-dittoHeatmap(combined, genes = microglia_human_ad$genes[1:30],
-             annot.by = c("Genotype", "orig.ident"), cluster_rows = FALSE, assay = "RNA")
-```
+# Pull top 30 genes for heatmap visualization
+combined_genes <- c(microglia_human_ad$genes[1:15], rev(microglia_human_c$genes[1:15]))
 
-
-```{r}
-microglia_human_c
-dittoHeatmap(combined, genes = microglia_human_c$genes[1:30],
-             annot.by = c("Genotype", "orig.ident"), cluster_rows = FALSE, assay = "RNA")
-```
-```{r}
+# Scale data for visualization
 combined <- ScaleData(combined, assay = "RNA")
 
+# Heatmap of top markers
 DoHeatmap(combined,
           features = combined_genes,
           group.by = "Genotype",
@@ -219,18 +184,10 @@ DoHeatmap(combined,
           disp.min = -2,
           disp.max = 2)
 
+# Save image
 ggsave(filename = paste0(home_dir, "/Figures/Figure 2/2C.png"), width = 7, height = 7)
 ```
 
-
-
-
-
-```{r}
-combined_genes <- c(microglia_human_ad$genes[1:15], rev(microglia_human_c$genes[1:15]))
-human_heatmap <- dittoHeatmap(combined, genes = combined_genes,
-             annot.by = c("Genotype"), cluster_rows = FALSE, assay = "RNA")
-```
 
 
 
@@ -276,20 +233,11 @@ colnames(microglia_mouse_ad) <- c("genes", "p_val", "avg_log2FC", "pct.1", "pct.
 
 ## Mouse AD and Human AD
 ```{r}
+
 ortholog_mat <- convert_orthologs(gene_df = microglia_mouse_ad$genes,
                                     input_species = "mouse",
                                     output_species = "human",
                                     non121_strategy = "drop_both_species")
-
-#ortholog_mat <- ortholog_mat %>%
-  #filter(row.names(ortholog_mat) %in% row.names(principle_components))
-#human_gex_matrix <- human_gex_matrix %>%
-  #filter(row.names(human_gex_matrix) %in% ortholog_mat$input_gene)
-#row.names(human_gex_matrix) <- row.names(ortholog_mat)
-
-#principle_components  <- principle_components %>% arrange(row.names(principle_components))
-#human_gex_matrix <- human_gex_matrix %>%
-  #arrange(row.names(human_gex_matrix))
 ```
 
 
@@ -306,16 +254,6 @@ ortholog_mat <- convert_orthologs(gene_df = microglia_mouse_wt$genes,
                                     input_species = "mouse",
                                     output_species = "human",
                                     non121_strategy = "drop_both_species")
-
-#ortholog_mat <- ortholog_mat %>%
-  #filter(row.names(ortholog_mat) %in% row.names(principle_components))
-#human_gex_matrix <- human_gex_matrix %>%
-  #filter(row.names(human_gex_matrix) %in% ortholog_mat$input_gene)
-#row.names(human_gex_matrix) <- row.names(ortholog_mat)
-
-#principle_components  <- principle_components %>% arrange(row.names(principle_components))
-#human_gex_matrix <- human_gex_matrix %>%
-  #arrange(row.names(human_gex_matrix))
 ```
 
 ```{r}
@@ -325,14 +263,9 @@ wt_similarities <- ortholog_mat %>%
 wt_similarities
 ```
 
-## Mouse AD to Mouse WT
-```{r}
-shared_de <- ad_similarities %>%
-  filter(row.names(ad_similarities) %in% wt_similarities)
-shared_de
-```
 
 ```{r}
-
+sessionInfo()
 ```
+
 

@@ -28,11 +28,12 @@ home_dir <- "C:/Users/aberg/OneDrive/Desktop/Brubaker Summer Research 2023"
 # Normal Object Setup
 ## Data Import
 ```{r}
+# Reading in mouse data, only normal cells
 rownames <- rep("character", 1)
 control <- rep("integer", 15013)
 other <- rep("NULL", 46936)
 colClasses <- c(rownames, control, other)
-# Normal Cells
+
 counts <- read.table(file = paste0(home_dir, "/AD_mouse_raw/GSE208683_Allcell_6m_UMI_matrix.txt"), sep = "\t", colClasses = colClasses)
 metadata <- read.table(file = paste0(home_dir, "/AD_mouse_raw/GSE208683_Allcell_6m_meta_data.txt"), sep = "\t")
 
@@ -44,6 +45,7 @@ metadata <- metadata[1:15013,]
 ```{r}
 colnames(counts) <- gsub("\\.", "-", colnames(counts))
 wild_type <- CreateSeuratObject(counts = counts, meta.data = metadata)
+# These are the previous identifications of the wild type cells from the data source
 table(wild_type@meta.data$SampleID, wild_type@meta.data$CellType)
 rm(counts, metadata)
 ```
@@ -58,14 +60,16 @@ saveRDS(wild_type, file = paste0(home_dir, "/AD_mouse_objects_ortholog/wt_orthol
 # AD Object Setup
 ## Data Import
 ```{r}
+# Reading in human data, only 5xFAD cells only
 rownames <- rep("character", 1)
 other1 <- rep("NULL", 31848)
 ad <- rep("integer", 14662)
 other2 <- rep("NULL",15439)
 colClasses <- c(rownames, other1, ad, other2)
-# Normal Cells
+
 counts <- read.table(file = paste0(home_dir, "/AD_mouse_raw/GSE208683_Allcell_6m_UMI_matrix.txt"), sep = "\t", colClasses = colClasses)
 metadata <- read.table(file = paste0(home_dir, "/AD_mouse_raw/GSE208683_Allcell_6m_meta_data.txt"), sep = "\t")
+
 metadata <- metadata[31849:46510,]
 ```
 
@@ -73,6 +77,7 @@ metadata <- metadata[31849:46510,]
 ```{r}
 colnames(counts) <- gsub("\\.", "-", colnames(counts))
 ad <- CreateSeuratObject(counts = counts, meta.data = metadata)
+# These are the previous identifications of the wild type cells from the data source
 table(ad@meta.data$SampleID, ad@meta.data$CellType)
 rm(counts, metadata)
 ```
@@ -87,6 +92,7 @@ saveRDS(ad, file = paste0(home_dir, "/AD_mouse_objects_ortholog/ad_ortholog.RDat
 ```{r}
 ad <- readRDS(file = paste0(home_dir, "/ad_mouse_objects_ortholog/ad_ortholog.RData"))
 wild_type <- readRDS(file = paste0(home_dir, "/ad_mouse_objects_ortholog/wt_ortholog.RData"))
+
 ad <- SplitObject(ad, split.by = "SampleID")
 wild_type <- SplitObject(wild_type, split.by = "SampleID")
 combined <- c(ad, wild_type)
@@ -94,6 +100,7 @@ rm(ad, wild_type)
 ```
 
 ```{r}
+# Cell counts in each sample
 table(combined_test@meta.data$SampleID)
 ```
 
@@ -101,6 +108,7 @@ table(combined_test@meta.data$SampleID)
 
 ```{r}
 head(combined$AD_1@meta.data)
+# Creating chr vector to loop over for mouse data
 samples <- c("AD_1", "AD_2", "WT_1", "WT_2")
 ```
 
@@ -110,33 +118,41 @@ mouse_ortholog <- readRDS(file = paste0(home_dir, "/AD_mouse_objects_ortholog/mo
 
 
 ```{r}
+# Filter mouse data based on orthologs
 for(i in samples){
   combined[[i]] <- combined[[i]][mouse_ortholog]
 }
 ```
 
 ```{r}
+# RNA quality control metric calculation
 for(i in samples){ 
   combined[[i]][["rna.size"]] <-   log10(Matrix::colSums(combined[[i]]@assays$RNA@counts)) 
 } 
 ```
 
-
-
-
 ## QC and Visualization
 ```{r}
+# Visualizing quality control metrics of mouse data
 combined_test <- merge(x = combined[[1]], y = combined[2:length(combined)], merge.data=TRUE)
+# Violin Plot of rna size
 p1 <- VlnPlot(combined_test,"rna.size", group.by = "SampleID")
 p1
+cairo_ps(filename= paste0(home_dir, "/Figures/Supplemental Figure 1/S1B.eps"), width = 7, height = 7) # name the file as an EPS
+p1 #variable of the figure that is defined/saved, can be used any name
+dev.off()
+# Violin Plot of mitochondrial content
 p2 <- VlnPlot(combined_test,"percent.mt", group.by = "SampleID")
-p2
+cairo_ps(filename= paste0(home_dir, "/Figures/Supplemental Figure 1/S1D.eps"), width = 7, height = 7) # name the file as an EPS
+p2 #variable of the figure that is defined/saved, can be used any name
+dev.off()
 ```
 
 ```{r}
 rna_size_min <- list() 
 rna_size_max <- list() 
 
+# Calculates 3 MAD from the median rna-size, filters out if outside that range
 for(i in samples){ 
   rna_size_min[[i]] <- median(combined[[i]]@meta.data$rna.size) - (3*mad(combined[[i]]@meta.data$rna.size)) 
   
@@ -146,22 +162,15 @@ for(i in samples){
 
 
 
-```{r}
-cairo_ps(filename= paste0(home_dir, "/Figures/Supplemental Figure 1/S12.eps"), width = 7, height = 7) # name the file as an EPS
-p2 #variable of the figure that is defined/saved, can be used any name
-dev.off()
-```
-
-
-```{r}
-dittoPlot(combined_test, var = "nCount_RNA", group.by = "SampleID")
-
-```
 
 ## Check Cell Cycle after clustering
 ```{r}
+# S phase genes
 mmus_s <- gorth(cc.genes.updated.2019$s.genes, source_organism = "hsapiens", target_organism = "mmusculus")$ortholog_name
+# G2M phase genes
 mmus_g2m <- gorth(cc.genes.updated.2019$g2m.genes, source_organism = "hsapiens", target_organism = "mmusculus")$ortholog_name
+
+# Normalizes data and calculates cell-cycle scoring to be regressed
 for(i in samples){ 
     combined[[i]] <- NormalizeData(combined[[i]]) 
     combined[[i]] <- CellCycleScoring(combined[[i]], s.features = mmus_s, g2m.features = mmus_g2m) 
@@ -171,12 +180,12 @@ for(i in samples){
 ## SCTransform
 ```{r}
 #Applies SCTransform individually to each sample 
-
 combined <- lapply(X = combined, FUN = SCTransform,  method ="glmGamPoi", return.only.var.genes = FALSE, vars.to.regress = c("S.Score", "G2M.Score")) 
 ```
 
 
 ```{r}
+# Save data after SCTransform, computationally intensive
 #saveRDS(combined, file = paste0(home_dir, "/AD_mouse_objects_ortholog/combined_ortholog.RData"))
 combined <- readRDS(file = paste0(home_dir, "/AD_mouse_objects_ortholog/combined_ortholog.RData"))
 ```
@@ -185,32 +194,34 @@ combined <- readRDS(file = paste0(home_dir, "/AD_mouse_objects_ortholog/combined
 
 
 ```{r}
+# Calculates variable features across samples for integration
 variable.features <- SelectIntegrationFeatures(object.list = combined, nfeatures = 3000)
 ```
 
 ## Batch
 ```{r}
+# Merges samples
 combined <- merge(x = combined[[1]], y = combined[2:length(combined)], merge.data=TRUE) 
 
+# Assigns variable features calculated across samples
 VariableFeatures(combined) <- variable.features 
 ```
 
 
 ```{r}
+# Performs PCA
 combined <- RunPCA(combined, verbose = FALSE) 
 ```
 
 ```{r}
+# Variances for the individual principal components
 stdev <- combined@reductions$pca@stdev
 variances <- (stdev)^2 / sum(stdev^2)
 variances
 ```
 
-
-
 ```{r}
-#Checking differences in principal components 
-
+# PC Plot before integration occurs
 options(repr.plot.height = 12, repr.plot.width = 20) 
 p1 <- DimPlot(object = combined, reduction = "pca", pt.size = .1, group.by = "SampleID") 
 #p2 <- VlnPlot(object = combined, features = "PC_1", group.by = "SampleID", pt.size = 0) 
@@ -223,7 +234,7 @@ dev.off()
 We should batch correct.
 
 ```{r}
-#Running Harmony  
+# Running Harmony  
 options(repr.plot.height = 8, repr.plot.width = 16) 
 
 combined <- RunHarmony(combined, assay.use = "SCT", group.by.vars = "orig.ident", plot_convergence = TRUE) 
@@ -231,6 +242,7 @@ ggsave(paste0(home_dir, "/Mouse_Viz/convergence_plot_ortholog.pdf"))
 ```
 
 ```{r}
+# PC plot after integration occurs
 p1 <- DimPlot(object = combined, reduction = "harmony", pt.size = .1, group.by = "SampleID") 
 
 #p2 <- VlnPlot(object = combined, features = "harmony_1", group.by = "SampleID", pt.size = 0) 
@@ -240,6 +252,7 @@ dev.off()
 ```
 
 ```{r}
+# Variances after integration change
 stdev <- combined@reductions$harmony@stdev
 variances <- (stdev)^2 / sum(stdev^2)
 variances
@@ -247,6 +260,7 @@ variances
 
 
 ```{r}
+# Elbowplot to select PCs for clustering
 ElbowPlot(combined, reduction = "harmony", n = 50) 
 ```
 
@@ -257,15 +271,19 @@ Start with 30 PCS, check separation
 ```{r}
 #Performing Dimensional Reduction 
 
+# UMAP
 combined <- RunUMAP(combined, reduction = "harmony", dims = 1:30, verbose = FALSE) 
 
+# Find Neighboring cells 
 combined <- FindNeighbors(combined, reduction = "harmony", dims = 1:30, verbose = FALSE) 
 
+# knn clustering
 combined <- FindClusters(combined, resolution = 1, verbose = FALSE) 
 ```
 
 
 ```{r}
+# Visualize data
 dittoDimPlot(combined, "seurat_clusters", do.label = TRUE, legend.show = FALSE, labels.size = 3) 
 
 dittoDimPlot(combined, "Genotype") 
@@ -280,14 +298,14 @@ dittoDimPlot(combined, "Phase")
 ```
 
 ```{r}
+# Save dataset after clustering
 #saveRDS(combined, file = paste0(home_dir, "/AD_mouse_objects_ortholog/mouse_adwt_final.RData"))
 combined <- readRDS(file = paste0(home_dir, "/AD_mouse_objects_ortholog/mouse_adwt_final.RData"))
 ```
 
 
-
-
 ```{r}
+# Visualzie cells with markers
 marker_list <- c("Reln", "Satb2", "Fezf2", "Crym", "Bcl11b", "Sst", "Lhx6", "Adarb2", "Gad2", "Isl1", "Tcf7l2", "Eomes",
                  "Hes5", "Mki67", "Aldh1l1", "Olig2", "Otx2", "Trem2", "Igfbp7")
 
@@ -297,18 +315,10 @@ for(i in marker_list){
 }
 ```
 
-```{r}
-dittoDimPlot(combined, "seurat_clusters", do.label = TRUE, legend.show = FALSE, labels.size = 3) 
-```
-
-```{r}
-table(combined@meta.data$seurat_clusters, combined@meta.data$CellType)
-```
-
-
 
 ## Finding Cluster Identifiers
 ```{r}
+# Calculates markers of all clusters
 markers <- FindAllMarkers(combined, assay = "RNA", only.pos = TRUE, logfc.threshold = 0.5, test.use = "MAST", latent.vars = "SampleID") 
 
 clust_counts <- table(combined@meta.data[,"seurat_clusters"]) 
@@ -330,6 +340,7 @@ write.xlsx(clust_markers_list, file = paste0(home_dir, "/all_cell_markers_mouse_
 
 ## Assign Idents
 ```{r}
+# Summary Idents
 Idents(combined) <- combined@meta.data$seurat_clusters 
 
 new.cluster.ids <- c("Oligodendrocyte", "Neuron", "Astrocyte", "Neuron", "Neuron",
@@ -348,20 +359,7 @@ combined@meta.data$summary <- Idents(combined)
 ```
 
 ```{r}
-dittoDimPlot(combined, "summary")
-dittoDimPlot(combined, "CellType")
-dittoDimPlot(combined, "seurat_clusters", do.label = TRUE, legend.show = FALSE, labels.size = 3) 
-```
-
-```{r}
-dittoDimPlot(combined, "Adcyap1")
-VlnPlot(combined, "Adcyap1") + theme(legend.position = "none")
-dittoDimPlot(combined, "Bdnf")
-VlnPlot(combined, "Bdnf") + theme(legend.position = "none")
-```
-
-
-```{r}
+# Detailed Idents
 Idents(combined) <- combined@meta.data$seurat_clusters 
 
 new.cluster.ids <- c("Oligodendrocyte_0", "Neuron_1", "Astrocyte_2", "Neuron_3", "Neuron_4",
@@ -384,6 +382,7 @@ dittoDimPlot(combined, "summary")
 dittoDimPlot(combined, "detail")
 dittoDimPlot(combined, "CellType")
 ```
+
 Source used for cell type assignment
 https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6329831/
 https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6671143/ 
@@ -391,14 +390,9 @@ https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6655561/
 
 
 ```{r}
-table(combined@meta.data$summary, combined@meta.data$SampleID)
-```
-
-
-
-```{r}
-saveRDS(combined, file = paste0(home_dir, "/AD_mouse_objects_ortholog/mouse_adwt_labeled.RData"))
-#combined <- readRDS(file = paste0(home_dir, "/AD_mouse_objects_ortholog/mouse_adwt_labeled.RData"))
+# Save seurat object with cell types identified
+#saveRDS(combined, file = paste0(home_dir, "/AD_mouse_objects_ortholog/mouse_adwt_labeled.RData"))
+combined <- readRDS(file = paste0(home_dir, "/AD_mouse_objects_ortholog/mouse_adwt_labeled.RData"))
 ```
 
 # Visualization
@@ -454,29 +448,6 @@ p2 #variable of the figure that is defined/saved, can be used any name
 dev.off()
 ```
 
-
-
-```{r}
-dittoHeatmap(combined, markers, assay = "RNA", annot.by = c("summary", "seurat_clusters"), order.by = , cluster_rows = FALSE)
-```
-
-```{r}
-levels(combined) <- c("Neuron", "Oligodendrocyte", "Oligodendrocyte Precursor", "Astrocyte", "Endothelial", "Microglia")
-```
-
-```{r}
-cell_count_table <- table(combined@meta.data$summary, combined@meta.data$Genotype)
-write.csv(cell_count_table, file = paste0(home_dir, "/Figures/Figure 1/mouse_counts.csv"))
-```
-
-
-
-```{r}
-for(i in markers){
-  print(i)
-  dittoDimPlot(combined, i)
-}
-```
 
 ```{r}
 sessionInfo()

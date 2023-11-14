@@ -1,0 +1,46 @@
+---
+title: "AD Visualization"
+author: "Alexander Bergendorf"
+date: "2023-09-28"
+output: html_document
+---
+
+# Library Import
+```{r}
+library(Seurat)
+library(mixOmics)
+library(h2o)
+library(tidyverse)
+library(orthogene)
+library(dittoSeq)
+library(openxlsx)
+home_dir <- "C:/Users/aberg/OneDrive/Desktop/Brubaker Summer Research 2023"
+```
+
+# Data Import
+```{r}
+human <- readRDS(file = paste0(home_dir, "/AD_human_objects_ortholog/human_adwt_labeled_ortholog.RData"))
+good_microglia <- readRDS(file = paste0(home_dir, "/AD_human_objects_ortholog/good_microglia_barcodes.RData"))
+human <- subset(human, cells = good_microglia)
+```
+
+# Cell Counts Visualization
+```{r}
+cell_counts <- read.csv(file = paste0(home_dir, "/Figures/Figure 1/cell_counts.csv"))
+cell_counts$sample_species <- paste0(cell_counts$Sample, "_", cell_counts$Species)
+
+cell_counts
+p <- ggplot(data=cell_counts, aes(x=Cell_Type, y=Count, fill=sample_species)) +
+geom_bar(stat="identity", color="black", position=position_dodge())+
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust=1))
+p
+cairo_ps(filename= paste0(home_dir, "/Figures/Figure 1/1F.eps"), width = 9, height = 7) # name the file as an EPS
+p #variable of the figure that is defined/saved, can be used any name
+dev.off()
+```
+
+```{r}
+sessionInfo()
+```
+

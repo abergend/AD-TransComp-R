@@ -26,6 +26,7 @@ combined <- subset(combined, subset = summary == "Microglia")
 ```
 
 ```{r}
+# Filtering mouse object based on good barcodes found
 good_microglia <- readRDS(file = paste0(home_dir, "/AD_mouse_objects_ortholog/good_microglia_barcodes.RData"))
 combined <- subset(combined, cells = good_microglia)
 combined
@@ -33,6 +34,7 @@ combined
 
 
 ```{r}
+# Normalized and scale data, do not center - spca() from mixomics will center
 DefaultAssay(combined) <- "RNA"
 combined <- NormalizeData(combined)
 all.genes <- rownames(combined)
@@ -40,32 +42,42 @@ combined <- ScaleData(combined, features = all.genes, do.center = FALSE)
 ```
 
 
-```{r}
-mouse_mat <- as.matrix(t(combined@assays$RNA@scale.data))
-```
 
 
 
 ## Run sPCA
 ```{r}
+# Transpose mouse matrix and run spca, get 50 principal components
+mouse_mat <- as.matrix(t(combined@assays$RNA@scale.data))
 mouse_embeddings <- mixOmics::spca(mouse_mat, ncomp = 50, scale = FALSE, center = TRUE)
 ```
 
+```{r}
+# Save spca object output
+#saveRDS(mouse_embeddings, file = paste0(home_dir, "/AD_mouse_objects_ortholog/mouse_embeddings.RData"))
+mouse_embeddings <-readRDS(file = paste0(home_dir, "/AD_mouse_objects_ortholog/mouse_embeddings.RData"))
+```
+
+```{r}
+# Variance explained for spca pulled from spca object
+variance_explained <- mouse_embeddings$prop_expl_var$X
+variance_explained <- variance_explained /sum(variance_explained)
+write.csv(variance_explained, paste0(home_dir, "/spca_variances_mouse.csv"))
+```
+
 
 
 ```{r}
+# Create spca reduction on mouse object and save
 combined[["spca"]] <- CreateDimReducObject(embeddings = mouse_embeddings$x, loadings = mouse_embeddings$rotation, key = "spca")
 saveRDS(combined, file = paste0(home_dir, "/AD_mouse_objects_ortholog/mouse_spca_loadings.RData"))
-```
-
-```{r}
-combined <- readRDS(file = paste0(home_dir, "/AD_mouse_objects_ortholog/mouse_spca_loadings.RData"))
+#combined <- readRDS(file = paste0(home_dir, "/AD_mouse_objects_ortholog/mouse_spca_loadings.RData"))
 ```
 
 
 
-
 ```{r}
+# Pull feature sparse principal component loadings from object
 principle_components <- combined@reductions$spca@feature.loadings
 head(principle_components)
 principle_components <- as.data.frame(principle_components)
@@ -75,6 +87,7 @@ principle_components <- as.data.frame(principle_components)
 
 ## Set Up Human Data
 ```{r}
+# Load human data, pull out only good human microglia
 human <- readRDS(file = paste0(home_dir, "/AD_human_objects_ortholog/human_adwt_labeled_ortholog.RData"))
 microglia <- subset(human, subset = summary == "Microglia")
 microglia
@@ -83,7 +96,10 @@ human <- subset(microglia, cells = good_microglia)
 human
 ```
 
+
+
 ```{r}
+# Normalize and Scale data, pull human gex_matrix
 DefaultAssay(human) <- "RNA"
 human <- NormalizeData(human)
 all.genes <- rownames(human)
@@ -94,19 +110,24 @@ human_gex_matrix <- as.data.frame(human@assays$RNA@scale.data)
 
 
 ```{r}
-# Getting orthologs and matching up names of eigenvectors and 
+# Confirming only orthologs in GEX matrix
 ortholog_mat <- convert_orthologs(gene_df = row.names(human_gex_matrix),
                                     input_species = "human",
                                     output_species = "mouse",
                                     non121_strategy = "drop_both_species")
-
+# Filtering the orthologs based on the 15607 principal component loadings
 ortholog_mat <- ortholog_mat %>%
   filter(row.names(ortholog_mat) %in% row.names(principle_components))
+# Filter the human_gex_matrix based on the 15607 principal component loadings
 human_gex_matrix <- human_gex_matrix %>%
   filter(row.names(human_gex_matrix) %in% ortholog_mat$input_gene)
+# Ordering human_gex_matrix in the same manner as the pc loadings
 row.names(human_gex_matrix) <- row.names(ortholog_mat)
 
-principle_components  <- principle_components %>% arrange(row.names(principle_components))
+# Arrange alphabetically 
+principle_components  <- principle_components %>%
+  arrange(row.names(principle_components))
+# Arrange alphabetically 
 human_gex_matrix <- human_gex_matrix %>%
   arrange(row.names(human_gex_matrix))
 ```
@@ -115,18 +136,24 @@ human_gex_matrix <- human_gex_matrix %>%
 
 
 ```{r}
+# converting to matrix
 principle_components <- as.matrix(principle_components)
 human_gex_matrix <- as.matrix(human_gex_matrix)
+# Ensuring equal rows, equals 3000
 ncol(t(principle_components))
 nrow(human_gex_matrix)
+# assigning human names to pc matrix
 principle_components <- principle_components[row.names(human_gex_matrix),]
+# Multiplies the transpose of the principal component matrix by the human gex matrix
 multiplication <- t(principle_components) %*% human_gex_matrix
+# Creates new dimensional reduction on human Seurat object with the spc projections
 human[["spca_projections"]] <- CreateDimReducObject(embeddings = t(multiplication), key = "spca_proj")
 ```
 
 
 ## Running GLM to determine significance of PCS
 ```{r}
+# Add human cell embeddings to Seurat metadata
 human <- AddMetaData(human, human@reductions$spca_projections@cell.embeddings, col.name = colnames(human@reductions$spca_projections@cell.embeddings))
 ```
 
@@ -149,7 +176,7 @@ human <- readRDS(paste0(home_dir, "/AD_human_objects_ortholog/human_mouse_proj_s
 
 
 ```{r}
-# Run GLM
+# Run GLM with all PCs
 ad.model <- glm(dv ~ spcaproj_1 + spcaproj_2 + spcaproj_3 + spcaproj_4 + spcaproj_5 + 
                   spcaproj_6 + spcaproj_7 + spcaproj_8 + spcaproj_9 + spcaproj_10 +
                   spcaproj_11 + spcaproj_12 + spcaproj_13 + spcaproj_14 + spcaproj_15 +
@@ -244,39 +271,36 @@ summary(ad.model3)
 
 ## Visualizing Highly Different PCs
 ```{r}
-p1 <- DimPlot(human, reduction = "spca_projections", dims = c(6, 2), group.by = "Genotype")
+# plot pc projections to visualize
+for(i in 2:50){
+p1 <- DimPlot(human, reduction = "spca_projections", dims = c(1, i), group.by = "Genotype")
+ggsave(filename = paste0(home_dir, "/pc_plot_spca/pc_", i, ".pdf"))
+}
 ```
 
-```{r}
-cairo_ps(filename= paste0(home_dir, "/Figures/Figure 3/3D_spca.eps"), width = 7, height = 7) # name the file as an EPS
-p1 #variable of the figure that is defined/saved, can be used any name
-dev.off()
-```
 
 ```{r}
+# Deviance barplot visualization
 anova_df <- anova(ad.model2)
 anova_df <- anova_df %>%
   arrange(desc(Deviance))
 anova_df <- anova_df %>%
   filter(!row.names(anova_df) %in% c("NULL"))
 anova_df
-```
 
-
-```{r}
 p2 <- ggplot(anova_df, aes(x = reorder(row.names(anova_df), Deviance), y = Deviance)) + 
   geom_bar(stat = "identity") + coord_flip() +
   scale_y_log10() + 
   labs(x = "Principal Component",
        title = "Significant sPCA Loadings") + 
   theme(axis.text.y = element_text(size = 8))
-```
 
-```{r}
 cairo_ps(filename= paste0(home_dir, "/Figures/Figure 3/3C_spca.eps"), width = 9, height = 7) # name the file as an EPS
 p2 #variable of the figure that is defined/saved, can be used any name
 dev.off()
 ```
+
+
 
 ```{r}
 sessionInfo()

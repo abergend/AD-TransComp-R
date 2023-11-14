@@ -19,15 +19,18 @@ samples <- c("A1", "A2", "A3", "A4")
 names <- c("AD1", "C1", "AD2", "C2")
 data_list <- list()
 
+# Load in human data
 for(i in samples){ 
   data <- Read10X(paste0(home_dir, "/AD_human_raw/", i)) 
   data_list[[i]] <- data 
 } 
 
+# Convert data to seurat objects
 for(i in samples){ 
   data_list[[i]] <- CreateSeuratObject(counts = data_list[[i]], project = i) 
 } 
 
+# Get human genes for ortholog conversion
 human_genes <- row.names(data_list$A1@assays$RNA)
 rm(data_list, data)
 ```
@@ -39,10 +42,11 @@ rownames <- rep("character", 1)
 control <- rep("integer", 15013)
 other <- rep("NULL", 46936)
 colClasses <- c(rownames, control, other)
-# Normal Cells
+
 counts <- read.table(file = paste0(home_dir, "/AD_mouse_raw/GSE208683_Allcell_6m_UMI_matrix.txt"), sep = "\t", colClasses = colClasses)
 metadata <- read.table(file = paste0(home_dir, "/AD_mouse_raw/GSE208683_Allcell_6m_meta_data.txt"), sep = "\t")
 
+# Data all together, getting metadata of wild type cells
 metadata <- metadata[1:15013,]
 
 colnames(counts) <- gsub("\\.", "-", colnames(counts))
@@ -55,9 +59,12 @@ other1 <- rep("NULL", 31848)
 ad <- rep("integer", 14662)
 other2 <- rep("NULL",15439)
 colClasses <- c(rownames, other1, ad, other2)
-# Normal Cells
+
+
 counts <- read.table(file = paste0(home_dir, "/AD_mouse_raw/GSE208683_Allcell_6m_UMI_matrix.txt"), sep = "\t", colClasses = colClasses)
 metadata <- read.table(file = paste0(home_dir, "/AD_mouse_raw/GSE208683_Allcell_6m_meta_data.txt"), sep = "\t")
+
+# Data all together, getting metadata of wild type cells
 metadata <- metadata[31849:46510,]
 
 colnames(counts) <- gsub("\\.", "-", colnames(counts))
@@ -73,6 +80,7 @@ rm(ad, wild_type)
 ```
 
 ```{r}
+# Mouse genes for ortholog conversion
 mouse_genes <- row.names(combined$AD_1@assays$RNA@counts)
 ```
 
@@ -83,13 +91,9 @@ saveRDS(mouse_genes, file = paste0(home_dir, "/AD_mouse_objects_ortholog/mouse_g
 
 
 
+# Ortholog Finder
 ```{r}
-length(mouse_genes)
-length(human_genes)
-```
-
-# Adjusting Mouse genes to Human, Drop Duplicate Mappings
-```{r}
+# Get mouse genes that are orthologs to human genes
 adjusted_mouse <- convert_orthologs(gene_df = mouse_genes,
                                     input_species = "mouse",
                                     output_species = "human",
@@ -97,6 +101,7 @@ adjusted_mouse <- convert_orthologs(gene_df = mouse_genes,
 ```
 
 ```{r}
+# Get human genes that are orthologs to mouse genes
 adjusted_human <- convert_orthologs(gene_df = human_genes,
                                     input_species = "human",
                                     output_species = "mouse",
@@ -104,6 +109,7 @@ adjusted_human <- convert_orthologs(gene_df = human_genes,
 ```
 
 ```{r}
+# Filtering mouse genes based on human orthologs
 length(row.names(adjusted_mouse))
 adjusted_mouse <- adjusted_mouse %>%
   filter(row.names(adjusted_mouse) %in% adjusted_human$input_gene)
@@ -111,6 +117,7 @@ length(row.names(adjusted_mouse))
 ```
 
 ```{r}
+# Filtering human genes based on mouse orthologs
 length(row.names(adjusted_human))
 adjusted_human <- adjusted_human %>%
   filter(row.names(adjusted_human) %in% adjusted_mouse$input_gene)
@@ -118,6 +125,7 @@ length(row.names(adjusted_human))
 ```
 
 ```{r}
+# Filtering mouse genes based on adjusted human again, ensures that the exact same number of genes are in the same list
 length(row.names(adjusted_mouse))
 adjusted_mouse <- adjusted_mouse %>%
   filter(row.names(adjusted_mouse) %in% adjusted_human$input_gene)
@@ -127,6 +135,7 @@ length(row.names(adjusted_mouse))
 
 
 ```{r}
+# Save data
 mouse_orthologs <- adjusted_mouse$input_gene
 saveRDS(mouse_orthologs, file = paste0(home_dir, "/AD_mouse_objects_ortholog/mouse_orthologs.RData"))
 

@@ -35,14 +35,6 @@ combined <- ScaleData(combined, features = all.genes)
 combined <- RunPCA(combined, features = VariableFeatures(object = combined))
 ```
 
-```{r}
-ElbowPlot(combined)
-```
-
-
-```{r}
-colnames(combined@meta.data)
-```
 
 ```{r}
 dittoDimPlot(combined, var = "Genotype", reduction.use = "pca")
@@ -88,6 +80,7 @@ write.xlsx(clust_markers_list, file = paste0(home_dir, "/mouse_microglia_reclust
 ```
 
 ```{r}
+# Find sub cluster of cluster 2 which has some microglial and some non-microglial cells
 combined <- FindSubCluster(
   combined,
   cluster = 2,
@@ -98,16 +91,15 @@ combined <- FindSubCluster(
 )
 ```
 
-```{r}
-#dittoDimPlot(combined, "sub.cluster", do.label = TRUE, legend.show = FALSE, labels.size = 3) 
-```
 
 ```{r}
+# Cluster 2_1, 3, 4, and 6 are all non-microglial cels
 combined <- subset(combined, subset = sub.cluster %in% c("2_1","3", "4", "6"), invert = TRUE)
 
 ```
 
 ```{r}
+# Here we can see all mouse microglial cells
 dittoDimPlot(combined, "sub.cluster", do.label = TRUE, legend.show = FALSE, labels.size = 3)
 ```
 
@@ -115,6 +107,7 @@ dittoDimPlot(combined, "sub.cluster", do.label = TRUE, legend.show = FALSE, labe
 
 
 ```{r}
+# Save barcodes of good microglial cells for future use
 good_microglia <- Cells(combined)
 #saveRDS(good_microglia, file = paste0(home_dir, "/AD_mouse_objects_ortholog/good_microglia_barcodes.RData"))
 ```
@@ -122,6 +115,7 @@ good_microglia <- Cells(combined)
 
 ## Rerun PCA mouse
 ```{r}
+# Rerunning PCA after filtering
 DefaultAssay(combined) <- "RNA"
 combined <- NormalizeData(combined)
 combined <- FindVariableFeatures(combined, selection.method = "vst", nfeatures = 3000)
@@ -129,8 +123,19 @@ all.genes <- rownames(combined)
 combined <- ScaleData(combined, features = all.genes)
 combined <- RunPCA(combined, features = VariableFeatures(object = combined))
 ```
+```{r}
+# Variances of mosue PCs
+stdev <- combined@reductions$pca@stdev
+variance <- stdev^2
+variance <- variance / sum(variance)
+variance
+write.csv(variance, paste0(home_dir, "/pca_variances_mouse.csv"))
+```
+
+
 ## Figure 2B
 ```{r}
+# Cluster cells and visualize on UMAP for paper visualization
 combined <- FindNeighbors(combined, dims = 1:5)
 combined <- FindClusters(combined, resolution = 0.5)
 combined <- RunUMAP(combined, dims = 1:5)
@@ -145,6 +150,7 @@ dev.off()
 ```
 
 ```{r}
+# Counts of mouse microglial cells
 count_table <- table(combined@meta.data$Genotype)
 write.csv(count_table, file = paste0(home_dir, "/Figures/Figure 2/mouse_counts.csv"))
 ```
@@ -155,16 +161,14 @@ ElbowPlot(combined, ndims = 50)
 ```
 
 
-Nice, we can see PC_2 has clear defining features which separate AD and WT. Lets use 50 PCs for Trans-Comp-R
-
-
 ```{r}
+# We can see here that PC_2 separates mouse AD and WT cells.
 DimPlot(combined, group.by = "Genotype",dims = c(1, 2), reduction = "pca")
 ```
 
 
 ```{r}
-# PC1 and PC2 are most informative for treatment separation, especially PC2
+# Pull principal components from Seurat object
 principle_components <- combined@reductions$pca@feature.loadings
 head(principle_components)
 principle_components <- as.data.frame(principle_components)
@@ -180,6 +184,7 @@ human <- subset(human, subset = summary == "Microglia")
 
 
 ```{r}
+# Run initial PCA
 DefaultAssay(human) <- "RNA"
 human <- NormalizeData(human)
 human <- FindVariableFeatures(human, selection.method = "vst", nfeatures = 3000)
@@ -193,10 +198,12 @@ ElbowPlot(human)
 ```
 
 ```{r}
+# Same case as for Mouse, few cells causing separation, so, let's filter non-microglial cells out
 dittoDimPlot(human, var = "Genotype", reduction.use = "pca")
 ```
 
 ```{r}
+# Clustering 
 human <- FindNeighbors(human, dims = 1:10)
 human <- FindClusters(human, resolution = 0.5)
 human <- RunUMAP(human, dims = 1:10)
@@ -229,6 +236,7 @@ write.xlsx(clust_markers_list, file = paste0(home_dir, "/human_microglia_reclust
 
 
 ```{r}
+# Based on the markers, 6, 7, 9, 10, and 11 are not microglial cells
 human <- subset(human, subset = seurat_clusters %in% c(6, 7, 9, 10, 11), invert = TRUE)
 ```
 
@@ -239,6 +247,7 @@ dittoDimPlot(human, "seurat_clusters", do.label = TRUE, legend.show = FALSE, lab
 
 
 ```{r}
+# Saving barcodes of good human microglia
 good_microglia <- Cells(human)
 #saveRDS(good_microglia, file = paste0(home_dir, "/AD_human_objects_ortholog/good_microglia_barcodes.RData"))
 ```
@@ -247,6 +256,7 @@ good_microglia <- Cells(human)
 
 ## Get Human GEX matrix
 ```{r}
+# Rerunning PCA again
 DefaultAssay(human) <- "RNA"
 human <- NormalizeData(human)
 all.genes <- rownames(human)
@@ -262,6 +272,7 @@ ElbowPlot(human)
 
 
 ```{r}
+# Plotting on UMAP for visualization
 human <- FindNeighbors(human, dims = 1:5)
 human <- FindClusters(human, resolution = 0.5)
 human <- RunUMAP(human, dims = 1:5)
@@ -275,48 +286,63 @@ dev.off()
 ```
 
 ```{r}
+# Count of human microglial cells
 count_table <- table(human@meta.data$Genotype)
 write.csv(count_table, file = paste0(home_dir, "/Figures/Figure 2/human_counts.csv"))
-count_table
 ```
 
 
 ```{r}
-# Getting orthologs and matching up names of eigenvectors and 
+# Confirming only orthologs in GEX matrix
 ortholog_mat <- convert_orthologs(gene_df = row.names(human_gex_matrix),
                                     input_species = "human",
                                     output_species = "mouse",
                                     non121_strategy = "drop_both_species")
 
+# Filtering the orthologs based on the 3000 principal component loadings
 ortholog_mat <- ortholog_mat %>%
   filter(row.names(ortholog_mat) %in% row.names(principle_components))
+# Filtering the human gex matrix based on the 3000 principal component loadings
 human_gex_matrix <- human_gex_matrix %>%
   filter(row.names(human_gex_matrix) %in% ortholog_mat$input_gene)
+# Ordering human_gex_matrix in the same manner as the pc loadings
 row.names(human_gex_matrix) <- row.names(ortholog_mat)
 
+# Arrange alphabetically 
 principle_components  <- principle_components %>% arrange(row.names(principle_components))
+# Arrange alphabetically
 human_gex_matrix <- human_gex_matrix %>%
   arrange(row.names(human_gex_matrix))
 ```
 
 ```{r}
+# Save mouse object with pca loadings
 saveRDS(combined, file = paste0(home_dir, "/AD_mouse_objects_ortholog/mouse_pca_loadings.RData"))
 ```
 
 
 ```{r}
+# converting to matrix
 principle_components <- as.matrix(principle_components)
 human_gex_matrix <- as.matrix(human_gex_matrix)
+
+# assigning human names to pc matrix
 principle_components <- principle_components[row.names(human_gex_matrix),]
 
+# Ensuring equal rows, equals 3000
 ncol(t(principle_components))
 nrow(human_gex_matrix)
+
+# Multiplies the transpose of the principal component matrix by the human gex matrix
 multiplication <- t(principle_components) %*% human_gex_matrix
+
+# Creates new dimensional reduction on human Seurat object with the pc projections
 human[["pca_projections"]] <- CreateDimReducObject(embeddings = t(multiplication), key = "pca_proj")
 ```
 
 ## Running GLM to determine significance of PCS
 ```{r}
+# Add human cell embeddings to Seurat metadata
 human <- AddMetaData(human, human@reductions$pca_projections@cell.embeddings, col.name = colnames(human@reductions$pca_projections@cell.embeddings))
 ```
 
@@ -331,17 +357,15 @@ Idents(human) <- human@meta.data$summary
 table(human@meta.data$Genotype, human@meta.data$dv)
 ```
 
-```{r}
-human <- AddMetaData(human, human@reductions$pca_projections@cell.embeddings, col.name = colnames(human@reductions$pca_projections@cell.embeddings))
-```
 
 ```{r}
+# Save human object with pca_projection
 #saveRDS(human, file = paste0(home_dir, "/AD_human_objects_ortholog/human_mouse_proj_pca.RData"))
 human <- readRDS(file = paste0(home_dir, "/AD_human_objects_ortholog/human_mouse_proj_pca.RData"))
 ```
 
 ```{r}
-# Run GLM
+# Run GLM with all PCs
 ad.model <- glm(dv ~ pcaproj_1 + pcaproj_2 + pcaproj_3 + pcaproj_4 + pcaproj_5 + 
                   pcaproj_6 + pcaproj_7 + pcaproj_8 + pcaproj_9 + pcaproj_10 +
                   pcaproj_11 + pcaproj_12 + pcaproj_13 + pcaproj_14 + pcaproj_15 +
@@ -357,6 +381,7 @@ ad.model <- glm(dv ~ pcaproj_1 + pcaproj_2 + pcaproj_3 + pcaproj_4 + pcaproj_5 +
 ```{r}
 summary(ad.model)
 ```
+AIC of 1424.8
 
 ```{r}
 saveRDS(ad.model, file = paste0(home_dir, "/AD_human_objects_ortholog/pca_glm.RData"))
@@ -386,6 +411,8 @@ ad.model2 <- glm(dv ~ pcaproj_1 + pcaproj_2 + pcaproj_3 +
 summary(ad.model2)
 ```
 
+AIC of 1399.7
+
 ```{r}
 saveRDS(ad.model2, file = paste0(home_dir, "/AD_human_objects_ortholog/pca_glm2.RData"))
 ```
@@ -412,6 +439,8 @@ ad.model3 <- glm(dv ~ pcaproj_1 + pcaproj_3 +
 summary(ad.model3)
 ```
 
+AIC of 1461.7
+
 ```{r}
 saveRDS(ad.model3, file = paste0(home_dir, "/AD_human_objects_ortholog/pca_glm3.RData"))
 ```
@@ -428,49 +457,45 @@ models <- c(ad.model1, ad.model2, ad.model3)
 summary(ad.model1)
 summary(ad.model2)
 summary(ad.model3)
+anova(ad.model1)
 ```
+
+GLM with all significant PCs performs the best
 
 ## Visualize PCs
 ```{r}
-p1 <- DimPlot(human, reduction = "pca_projections", dims = c(1, 9), group.by = "Genotype")
-```
-
-```{r}
-cairo_ps(filename= paste0(home_dir, "/Figures/Figure 3/3D_pca.eps"), width = 7, height = 7) # name the file as an EPS
-p1 #variable of the figure that is defined/saved, can be used any name
-dev.off()
+# plot pc projections to visualize
+for(i in 2:50){
+p1 <- DimPlot(human, reduction = "pca_projections", dims = c(1, i), group.by = "Genotype")
+ggsave(filename = paste0(home_dir, "/pc_plot_pca/pc_", i, ".pdf"))
+}
 ```
 
 
 ```{r}
-anova(ad.model2)
-```
-
-```{r}
+# Deviance barplot visualization
 anova_df <- anova(ad.model2)
 anova_df <- anova_df %>%
   arrange(desc(Deviance))
 anova_df <- anova_df %>%
   filter(!row.names(anova_df) %in% c("NULL"))
 anova_df
-```
 
-```{r}
 p2 <- ggplot(anova_df, aes(x = reorder(row.names(anova_df), Deviance), y = Deviance)) + 
   geom_bar(stat = "identity") + coord_flip() +
   scale_y_log10() + 
   labs(x = "Principal Component",
        title = "Significant PCA Loadings") +
    theme(axis.text.y = element_text(size = 10))
-```
 
-```{r}
 cairo_ps(filename= paste0(home_dir, "/Figures/Figure 3/3C_pca.eps"), width = 9, height = 7) # name the file as an EPS
 p2 #variable of the figure that is defined/saved, can be used any name
 dev.off()
 ```
 
+
+
 ```{r}
-dittoDimPlot()
+sessionInfo()
 ```
 

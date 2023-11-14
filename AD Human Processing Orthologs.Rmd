@@ -26,12 +26,11 @@ home_dir <- "C:/Users/aberg/OneDrive/Desktop/Brubaker Summer Research 2023"
 # Finding Cluster Identifications
 ```{r}
 combined <- readRDS(file = paste0(home_dir, "/AD_human_objects_ortholog/human_adc_final_ortholog.RData"))
-dittoDimPlot(combined, "seurat_clusters", do.label = TRUE, legend.show = FALSE, labels.size = 3) 
 ```
 
 
-
 ```{r}
+# Calculate markers with sample as latent variable
 markers <- FindAllMarkers(combined, assay = "RNA", only.pos = TRUE, logfc.threshold = 0.5, test.use = "MAST", latent.vars = "orig.ident") 
 
 clust_counts <- table(combined@meta.data[,"seurat_clusters"]) 
@@ -51,13 +50,10 @@ rownames(clust_markers_list[[clustname]]) <- clust_markers_list[[clustname]]$gen
 write.xlsx(clust_markers_list, file = paste0(home_dir, "/all_cell_markers_human_ortholog.xlsx"))
 ```
 
-```{r}
-dittoDimPlot(combined, "seurat_clusters", do.label = TRUE, legend.show = FALSE, labels.size = 3) 
-```
-
 
 
 ```{r}
+# Visualization of some markers
 marker_list <- c("RASGEF1B", "LINGO1",
                  "BEX3", "ICA1", "NDUFA4", "STMN2",
                  "CABLES1", "PREX2", "GRM3", "KCNIP4", "RLBP1",
@@ -78,10 +74,13 @@ for(i in marker_list){
 
 ```
 
+Source used for cluster identification
+
 https://www.researchgate.net/publication/333831987_Author_Correction_Single-cell_transcriptomic_analysis_of_Alzheimer's_disease
 
 # Assign Idents
 ```{r}
+# Summary of identification for human data
 Idents(combined) <- combined@meta.data$seurat_clusters 
 
 new.cluster.ids <- c("Oligodendrocyte", "Astrocyte", "Microglia", "Neuron", "Neuron",
@@ -98,6 +97,7 @@ combined@meta.data$summary <- Idents(combined)
 ```
 
 ```{r}
+# Detailed identifications for human data
 Idents(combined) <- combined@meta.data$seurat_clusters 
 
 new.cluster.ids <- c("Oligodendrocyte_0", "Astrocyte_1", "Microglia_2", "Neuron_3", "Neuron_4",
@@ -124,15 +124,17 @@ dittoDimPlot(combined, "detail")
 combined <- readRDS(file = paste0(home_dir, "/AD_human_objects_ortholog/human_adwt_labeled_ortholog.RData"))
 ```
 
+
 # Visualization
 ## 1B
 ```{r}
+# UMAP of Human cells
 Idents(combined) <- combined@meta.data$summary
 levels(combined) <- c("Astrocyte", "Endothelial", "Microglia", 
                       "Neuron", "Oligodendrocyte", "Oligodendrocyte Precursor")
 
 p1 <- dittoDimPlot(combined, Idents(combined))
-
+p1
 cairo_ps(filename= paste0(home_dir, "/Figures/Figure 1/1B.eps"), width = 9, height = 7) # name the file as an EPS
 p1 #variable of the figure that is defined/saved, can be used any name
 dev.off()
@@ -140,33 +142,8 @@ dev.off()
 
 
 ## 1C
-Markers
-Endothelial: 13, 16 (FLT1, VWF)
-Microglia: 2 (CSF1R, CD74)
-Oligodendrocyte Precursor: 6, 21 (VCAN,)
-Astrocytes: 1, 9 (AQP4, CABLES1)
-Oligodendrocyte: 0, 5, 22 ()
-Neuron: All other cluster (NRGN, GAD1)
-
 ```{r}
-markers <- c("NRGN", "GAD1",
-             "ANLN",
-             "VCAN",
-             "AQP4", "CABLES1",
-             "FLT1", "VWF",
-             "CSF1R")
-Idents(combined) <- combined@meta.data$summary
-levels(combined) <- c("Astrocyte", "Endothelial", "Microglia", 
-                      "Neuron", "Oligodendrocyte", "Oligodendrocyte Precursor")
-combined <- ScaleData(combined, assay = "RNA")
-p1 <- DoHeatmap(combined, markers, assay = "RNA", label = FALSE)
-
-cairo_ps(filename= paste0(home_dir, "/Figures/Figure 1/1C.eps"), width = 9, height = 7) # name the file as an EPS
-p1 #variable of the figure that is defined/saved, can be used any name
-dev.off()
-```
-
-```{r}
+# Dotplot of common human markers
 markers <- rev(markers)
 p2 <- DotPlot(combined, features = markers, assay = "RNA") + 
   theme(axis.text.x = element_text(angle = 45, hjust=1))
@@ -175,18 +152,17 @@ p2 #variable of the figure that is defined/saved, can be used any name
 dev.off()
 ```
 
-```{r}
-p1
-```
 
 
-# Cell Counts
+## Cell Counts
 ```{r}
+# Cell counts by genotype
 cell_count_table <- table(combined@meta.data$summary, combined@meta.data$Genotype)
 write.csv(cell_count_table, file = paste0(home_dir, "/Figures/Figure 1/human_counts.csv"))
 ```
 
 ```{r}
+# Assigning correct orig.ident classifications to sample
 combined_A1 <- subset(combined, subset = orig.ident == "A1")
 combined_A1@meta.data$orig.ident <- "AD_1"
 Idents(combined, cells = Cells(combined_A1)) <- combined_A1@meta.data$orig.ident
@@ -205,12 +181,6 @@ Idents(combined, cells = Cells(combined_A1)) <- combined_A1@meta.data$orig.ident
 
 combined@meta.data$orig.ident <- Idents(combined)
 ```
-
-```{r}
-table(combined@meta.data$summary, combined@meta.data$orig.ident)
-```
-
-
 
 
 ```{r}

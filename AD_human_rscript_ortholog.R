@@ -23,19 +23,20 @@ samples <- c("A1", "A2", "A3", "A4")
 names <- c("AD_1", "C_1", "AD_2", "C_2")
 data_list <- list()
 
+# Load in human data
 for(i in samples){ 
   data <- Read10X(paste0(home_dir, "/AD_human_raw/", i)) 
   data_list[[i]] <- data
 } 
 
-
 human_orthologs <- readRDS(file = paste0(home_dir, "/AD_human_objects_ortholog/human_orthologs.RData"))
 
-
+# Create Seurat object of human orthologs
 for(i in samples){ 
   data_list[[i]] <- CreateSeuratObject(counts = data_list[[i]], project = i)
 } 
 
+# Filter Seurat objects based on human orthologs
 for(i in samples){
   data_list[[i]] <- data_list[[i]][human_orthologs]
 }
@@ -49,10 +50,12 @@ for(i in names){
   data_list[[i]]@meta.data$Sample <- i
 }
 
+# Mitochondrial quality control
 for(i in names){ 
   data_list[[i]][["percent.mt"]] <- PercentageFeatureSet(data_list[[i]], pattern = "^MT-") 
 } 
 
+# RNA quality control
 for(i in names){ 
   data_list[[i]][["rna.size"]] <-   log10(Matrix::colSums(data_list[[i]]@assays$RNA@counts)) 
 } 
@@ -93,6 +96,7 @@ rna_size_min <- list()
 rna_size_max <- list() 
 
 
+# Calculates min and max for rna filtering
 for(i in names){ 
   rna_size_min[[i]] <- median(data_list[[i]]@meta.data$rna.size) - (3*mad(data_list[[i]]@meta.data$rna.size)) 
   
@@ -100,7 +104,7 @@ for(i in names){
 } 
 
 
-
+# Save QC metric DF
 qc_metrics <- c() 
 for(i in names){ 
   preqc_cells <- ncol(data_list[[i]]) 
@@ -112,7 +116,7 @@ row.names(qc_metrics) <- NULL
 preqc_metrics <- as.data.frame(qc_metrics)
 
 
-
+# Filter based on QC metrics
 for(i in names){ 
   temp_max <- rna_size_max[[i]] 
   temp_min <-  rna_size_min[[i]] 
@@ -121,7 +125,7 @@ for(i in names){
 } 
 
 
-
+# Finish QC Table
 qc_metrics <- c() 
 for(i in names){ 
   preqc_cells <- ncol(data_list[[i]]) 
@@ -166,23 +170,23 @@ data_list <- lapply(X = data_list, FUN = SCTransform, method = "glmGamPoi", retu
 #data_list <- readRDS(file = paste0(home_dir, "/AD_human_objects/combined.RData"))
 
 
-
+# Selects variable features across samples
 variable.features <- SelectIntegrationFeatures(object.list = data_list, nfeatures = 3000) 
 
 
 
-# Batch
-
+# Merge, batch correction
 data_list <- merge(x = data_list[[1]], y = data_list[2:length(data_list)], merge.data=TRUE) 
 
 VariableFeatures(data_list) <- variable.features
 
 
-
+# Run PCA
 data_list <- RunPCA(data_list, verbose = FALSE) 
 
+# Variances before integration
 stdev <- data_list@reductions$pca@stdev
-variances <- (stdev)^2 / sum(stdev^2)
+vaiances <- (stdev)^2 / sum(stdev^2)
 write.csv(variances, file = paste0(home_dir, "/pca_variances.csv"))
 
 
@@ -225,8 +229,8 @@ write.csv(variances, file = paste0(home_dir, "/harmony_variances.csv"))
 
 #Looking better.
 
-#ElbowPlot(data_list, reduction = "harmony", n = 50) 
-#ggsave(paste0(home_dir, "/Human_Viz_ortholog/elbowplot.pdf"))
+ElbowPlot(data_list, reduction = "harmony", n = 50) 
+ggsave(paste0(home_dir, "/Human_Viz_ortholog/elbowplot.pdf"))
 
 
 #Lets try 30 PCs
@@ -234,66 +238,30 @@ write.csv(variances, file = paste0(home_dir, "/harmony_variances.csv"))
 # Reducing Dimensionality
 #Performing Dimensional Reduction 
 
-#data_list <- RunUMAP(data_list, reduction = "harmony", dims = 1:30, verbose = FALSE) 
+data_list <- RunUMAP(data_list, reduction = "harmony", dims = 1:30, verbose = FALSE) 
 
-#data_list <- FindNeighbors(data_list, reduction = "harmony", dims = 1:30, verbose = FALSE) 
+data_list <- FindNeighbors(data_list, reduction = "harmony", dims = 1:30, verbose = FALSE) 
 
-#data_list <- FindClusters(data_list, resolution = 0.6, verbose = FALSE) 
-
-
-
-#dittoDimPlot(data_list, "seurat_clusters", do.label = TRUE, legend.show = FALSE, labels.size = 3) 
-#ggsave(paste0(home_dir, "/Human_Viz_ortholog/seurat_clusters.pdf"))
-
-#dittoDimPlot(data_list, "Genotype") 
-#ggsave(paste0(home_dir, "/Human_Viz_ortholog/genotype.pdf"))
-
-#dittoDimPlot(data_list, "orig.ident") 
-#ggsave(paste0(home_dir, "/Human_Viz_ortholog/orig_ident.pdf"))
-
-#dittoDimPlot(data_list, "percent.mt") 
-#ggsave(paste0(home_dir, "/Human_Viz_ortholog/percent_mt.pdf"))
-
-#dittoDimPlot(data_list, "Phase") 
-#ggsave(paste0(home_dir, "/Human_Viz_ortholog/phase.pdf"))
+data_list <- FindClusters(data_list, resolution = 0.6, verbose = FALSE) 
 
 
+# Visualization
+dittoDimPlot(data_list, "seurat_clusters", do.label = TRUE, legend.show = FALSE, labels.size = 3) 
+ggsave(paste0(home_dir, "/Human_Viz_ortholog/seurat_clusters.pdf"))
+
+dittoDimPlot(data_list, "Genotype") 
+ggsave(paste0(home_dir, "/Human_Viz_ortholog/genotype.pdf"))
+
+dittoDimPlot(data_list, "orig.ident") 
+ggsave(paste0(home_dir, "/Human_Viz_ortholog/orig_ident.pdf"))
+
+dittoDimPlot(data_list, "percent.mt") 
+ggsave(paste0(home_dir, "/Human_Viz_ortholog/percent_mt.pdf"))
+
+dittoDimPlot(data_list, "Phase") 
+ggsave(paste0(home_dir, "/Human_Viz_ortholog/phase.pdf"))
 
 
-#saveRDS(data_list, file = paste0(home_dir, "/AD_human_objects_ortholog/human_adc_final.RData"))
-#data_list <- readRDS(file = paste0(home_dir, "/AD_human_objects/human_adc_final.RData"))
 
-#marker_list <- c("UGT8", "KLK6", "KCNH8", "ERMN", "OPALIN",
-                 #"SLC14A1", "GLIS3", "GLI3", "CHRDL1", "NWD1",
-                 #"GPR183", "LAPTM5", "CSF1R", "CD14",
-                 #"APOLD1", "TM4SF1", "FLT1", "A2M",
-                 #"PDGFRA", "LHFPL3", "MEGF11", "PCDH15",
-                 #"RELN", "TMEM130", "DLX5", "SST", "EGFR")
-
-#for(i in marker_list){
-  #dittoDimPlot(data_list, var = i, assay = "RNA")
-  #ggsave(paste0(home_dir, "/Human_Viz_ortholog/markers/",i, "_umap.pdf"))
-  #print(VlnPlot(data_list, i, assay = "RNA"))
-  #ggsave(paste0(home_dir, "/Human_Viz_ortholog/markers/",i, "_vln.pdf"))
-#}
-
-
-# Finding Cluster Identifications
-#markers <- FindAllMarkers(data_list, assay = "RNA", only.pos = TRUE, logfc.threshold = 0.5, test.use = "MAST", latent.vars = "orig.ident") 
-
-#clust_counts <- table(data_list@meta.data[,"seurat_clusters"]) 
-
-#clust_markers_list <- list() 
-
-#for(i in unique(markers$cluster)){ 
-  
-  #clustname <- paste0('cluster', i, '_N', clust_counts[i]) 
-  
-  #clust_markers_list[[clustname]] <- subset(markers, markers$cluster == i) 
-  
-  #rownames(clust_markers_list[[clustname]]) <- clust_markers_list[[clustname]]$gene 
-  
-#} 
-
-#write.xlsx(clust_markers_list, file = paste0(home_dir, "/all_cell_markers_human.xlsx"))
-
+# Save object
+saveRDS(data_list, file = paste0(home_dir, "/AD_human_objects_ortholog/human_adc_final.RData"))
