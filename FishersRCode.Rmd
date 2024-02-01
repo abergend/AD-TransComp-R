@@ -17,7 +17,7 @@ suppressWarnings(library (data.table, verbose = FALSE))
 
 ```{r Fishers Test for PCA}
 # import the different drugs 
-# import the pca_loadings.csv and spca_loadings.csv 
+# import the pca_loadings.csv
 
 SB40 <- read.csv("SB40_orthologs_pca.csv", row.names = 1) 
 SB40_df <- as.data.frame(SB40)
