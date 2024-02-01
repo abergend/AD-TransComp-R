@@ -21,7 +21,7 @@ suppressWarnings(library (data.table, verbose = FALSE))
 
 SB40 <- read.csv("SB40_orthologs_pca.csv", row.names = 1) 
 SB40_df <- as.data.frame(SB40)
-#pca_loadings <- data.frame(read.csv("/Users/park1102/Downloads/pca_loadings.csv", row.names = 1))
+#pca_loadings <- data.frame(read.csv("/.../pca_loadings.csv", row.names = 1))
 pca_loadings <- as.data.frame(read.csv("pca_loadings.csv", row.names = 1))
 suvo_df <- as.data.frame(read.csv("suvo_orthologs_pca.csv", row.names = 1))
 SB33_df <- as.data.frame(read.csv("SB33_orthologs_pca.csv", row.names = 1))
@@ -182,18 +182,10 @@ for (x in 1:ncol(pca_genes10)) {
   pca_cont_df <- cbind(pca_cont_df, rbind(drug_pc, drug_nopc, nodrug_pc, nodrug_nopc))
 }
 
-
-# https://statsandr.com/blog/fisher-s-exact-test-in-r-independence-test-for-a-small-sample/
-
 # build the contingency table and perform fisher's test 
 fishers <- data.frame(matrix(nrow = 1, ncol = 0))
 for (x in 1:ncol(pca_cont_df)) {
-  cont_df <- data.frame(
-    "PCA yes" = pca_cont_df[c(1,3),x],
-    "PCA no" = pca_cont_df[c(2,4),x],
-    row.names = c("Drug yes", "Drug no"),
-    stringsAsFactors = FALSE
-  )
+  cont_df <- data.frame("PCA yes" = pca_cont_df[c(1,3),x], "PCA no" = pca_cont_df[c(2,4),x], row.names = c("Drug yes", "Drug no"), stringsAsFactors = FALSE)
   colnames(cont_df) <- c("PCA yes", "PCA no")
   
   fishers_test <- fisher.test(cont_df)
@@ -210,9 +202,9 @@ write.csv(fishers, "Almo_PCA_fishers_top10genes.csv")
 # import the different drugs 
 # import the spca_loadings.csv 
 
-#SB40 <- read.csv("/Users/park1102/Downloads/SB40_orthologs_pca.csv", row.names = 1) 
+#SB40 <- read.csv("/.../SB40_orthologs_pca.csv", row.names = 1) 
 #SB40_df <- as.data.frame(SB40)
-#pca_loadings <- data.frame(read.csv("/Users/park1102/Downloads/pca_loadings.csv", row.names = 1))
+#pca_loadings <- data.frame(read.csv("/.../pca_loadings.csv", row.names = 1))
 spca_loadings <- as.data.frame(read.csv("spca_loadings.csv", row.names = 1))
 suvo_df <- as.data.frame(read.csv("suvo_orthologs_spca.csv", row.names = 1))
 SB33_df <- as.data.frame(read.csv("SB33_orthologs_spca.csv", row.names = 1))
@@ -374,18 +366,10 @@ for (x in 1:ncol(spca_genes10)) {
   spca_cont_df <- cbind(spca_cont_df, rbind(drug_pc, drug_nopc, nodrug_pc, nodrug_nopc))
 }
 
-
-# https://statsandr.com/blog/fisher-s-exact-test-in-r-independence-test-for-a-small-sample/
-
 # build the contingency table and perform fisher's test 
 fishers <- data.frame(matrix(nrow = 1, ncol = 0))
 for (x in 1:ncol(spca_cont_df)) {
-  cont_df <- data.frame(
-    "sPCA yes" = spca_cont_df[c(1,3),x],
-    "sPCA no" = spca_cont_df[c(2,4),x],
-    row.names = c("Drug yes", "Drug no"),
-    stringsAsFactors = FALSE
-  )
+  cont_df <- data.frame("sPCA yes" = spca_cont_df[c(1,3),x], "sPCA no" = spca_cont_df[c(2,4),x], row.names = c("Drug yes", "Drug no"), stringsAsFactors = FALSE)
   colnames(cont_df) <- c("sPCA yes", "sPCA no")
   
   fishers_test <- fisher.test(cont_df)
